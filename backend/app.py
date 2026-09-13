@@ -713,12 +713,22 @@ class Sched(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True); self.last_digest=None
         self.last_event={}   # ward key -> {"band":..,"ts":..}
+        self._last_computed_live=None   # tracks LIVE.last we last computed against
+        self._cached_atrisk=[]
     def at_risk(self):
+        """Recompute the full 417-ward risk model ONLY when the underlying live
+        weather actually refreshed (every REFRESH_S, default 6h). Between
+        refreshes, reuse the cached result instead of re-running compute_national
+        (which re-runs UTCI/forecast for every ward) on every 20s scheduler tick."""
         global _NAT
         now=dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+        if _NAT.get("cities") and self._last_computed_live==LIVE.last:
+            return self._cached_atrisk
         out,tally,gtot=compute_national(now)
         _NAT={"ts":now.isoformat(),"total":gtot,"cities":tally}
         log_history(now,tally,gtot)
+        self._last_computed_live=LIVE.last
+        self._cached_atrisk=out
         return out
     def check_events(self, now):
         """Fire immediate, deduped threshold-crossing alerts when a ward escalates
