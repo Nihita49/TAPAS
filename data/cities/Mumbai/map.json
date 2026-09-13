@@ -1,0 +1,1 @@
+{"city": "Mumbai", "zoom": 13, "tile_min": [5751, 3648], "nx": 7, "ny": 11, "image": "basemap.jpg", "bbox": [72.76209505334761, 18.86762101733534, 72.99396939523179, 19.29651208416182], "n_wards": 24, "tile_source": "Esri World Imagery (\u00a9 Esri) -- real satellite", "boundary_source": "BMC_admin_wards.geojson"}

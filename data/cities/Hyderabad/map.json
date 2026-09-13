@@ -1,0 +1,1 @@
+{"city": "Hyderabad", "zoom": 12, "tile_min": [2938, 1844], "nx": 5, "ny": 5, "image": "basemap.jpg", "bbox": [78.247287663, 17.272794091999998, 78.645693837, 17.579675708], "n_wards": 144, "tile_source": "Esri World Imagery (\u00a9 Esri) -- real satellite", "boundary_source": "hyd_Wards.geojson"}

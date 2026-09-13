@@ -1,0 +1,805 @@
+{
+ "wards": {
+  "104": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.104",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 2.5,
+   "wall_kutcha_pct": 3.4000000000000004,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 98.8
+  },
+  "105": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.105",
+   "elec_pct": 96.2,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 4.3,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 96.5
+  },
+  "107": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.107",
+   "elec_pct": 98.3,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 7.8,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 97.7
+  },
+  "109": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.109",
+   "elec_pct": 96.8,
+   "roof_kutcha_pct": 3.9,
+   "wall_kutcha_pct": 8.4,
+   "dilapidated_pct": 3.5,
+   "tap_treated_pct": 92.9
+  },
+  "110": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.110",
+   "elec_pct": 98.4,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 4,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 96.6
+  },
+  "99": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.99",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 99
+  },
+  "100": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.100",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 2.5,
+   "wall_kutcha_pct": 2.9000000000000004,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 98.6
+  },
+  "145": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.145",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.1,
+   "wall_kutcha_pct": 2.2,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 99.1
+  },
+  "146": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.146",
+   "elec_pct": 96.1,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 13.4,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 97
+  },
+  "147": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.147",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 5.3,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 94.8
+  },
+  "148": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.148",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 5.199999999999999,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 97
+  },
+  "140": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.140",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 5.7,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 98.9
+  },
+  "141": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.141",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 2,
+   "wall_kutcha_pct": 5.3999999999999995,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 98.3
+  },
+  "142": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.142",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 6.1,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 97.2
+  },
+  "149": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.149",
+   "elec_pct": 98.4,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 5.0,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 96.7
+  },
+  "150": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.150",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.9,
+   "wall_kutcha_pct": 11.6,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 97.6
+  },
+  "88": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.88",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 8.399999999999999,
+   "dilapidated_pct": 1.9,
+   "tap_treated_pct": 94.6
+  },
+  "89": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.89",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.7000000000000002,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 98.7
+  },
+  "90": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.90",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 4.699999999999999,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 99.2
+  },
+  "91": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.91",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 6.7,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 97.8
+  },
+  "92": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.92",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 7.8,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 98.6
+  },
+  "93": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.93",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.7,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 98.8
+  },
+  "94": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.94",
+   "elec_pct": 94.9,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 8.5,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 96.8
+  },
+  "95": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.95",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 4.8999999999999995,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 99.1
+  },
+  "143": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.143",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 7.199999999999999,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 99.4
+  },
+  "144": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.144",
+   "elec_pct": 97.5,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 5.3,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 99.1
+  },
+  "83": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.83",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 99.2
+  },
+  "84": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.84",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 3.2,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 97.9
+  },
+  "85": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.85",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 5.4,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 97.8
+  },
+  "86": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.86",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 0.6,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 96.1
+  },
+  "87": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.87",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.5999999999999996,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 98.6
+  },
+  "80": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.80",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 4.3,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 95
+  },
+  "81": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.81",
+   "elec_pct": 97,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 2.2,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 99.2
+  },
+  "82": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.82",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 5.3,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 98.6
+  },
+  "50": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.50",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 7.1,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 94.7
+  },
+  "51": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.51",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 13.4,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 98.3
+  },
+  "52": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.52",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 19.8,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 94.8
+  },
+  "77": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.77",
+   "elec_pct": 96.1,
+   "roof_kutcha_pct": 2.4,
+   "wall_kutcha_pct": 7.5,
+   "dilapidated_pct": 2.7,
+   "tap_treated_pct": 91.2
+  },
+  "78": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.78",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 5.7,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 95.7
+  },
+  "79": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.79",
+   "elec_pct": 98,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 5.8999999999999995,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 96.3
+  },
+  "96": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.96",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 4.8,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 99.1
+  },
+  "97": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.97",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.8000000000000003,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 97.1
+  },
+  "98": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.98",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.9,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 97.6
+  },
+  "102": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.102",
+   "elec_pct": 98,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 9.4,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 96.7
+  },
+  "103": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.103",
+   "elec_pct": 98.5,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.0,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 98.9
+  },
+  "106": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.106",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 2.1,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 98.5
+  },
+  "108": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.108",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 3.8000000000000003,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 99.2
+  },
+  "61": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.61",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 11.200000000000001,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 97.9
+  },
+  "62": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.62",
+   "elec_pct": 97,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 8.6,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 96.6
+  },
+  "63": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.63",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 11.100000000000001,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 98.7
+  },
+  "64": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.64",
+   "elec_pct": 98.3,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 6.7,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 96.5
+  },
+  "65": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.65",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 10.5,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 97.5
+  },
+  "66": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.66",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 6.1,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 96.6
+  },
+  "67": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.67",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 2.2,
+   "wall_kutcha_pct": 9.9,
+   "dilapidated_pct": 3.9,
+   "tap_treated_pct": 92.6
+  },
+  "72": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.72",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 5.0,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 93.6
+  },
+  "73": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.73",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 5.699999999999999,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 98.5
+  },
+  "74": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.74",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 8.3,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 95.8
+  },
+  "75": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.75",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 3.0,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 93.7
+  },
+  "76": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.76",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 1.4000000000000001,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 97.7
+  },
+  "68": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.68",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 4.5,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 95.7
+  },
+  "69": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.69",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 6.2,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 97.7
+  },
+  "70": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.70",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 9.799999999999999,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 97.4
+  },
+  "71": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.71",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 1.3,
+   "wall_kutcha_pct": 5.3,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 94.8
+  },
+  "37": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.37",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 1.1,
+   "wall_kutcha_pct": 4.6,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 97.3
+  },
+  "42": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.42",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 15.1,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 96.3
+  },
+  "43": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.43",
+   "elec_pct": 97,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 10.7,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 92.9
+  },
+  "44": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.44",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 4.1,
+   "wall_kutcha_pct": 6.9,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 96.9
+  },
+  "45": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.45",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 3.5,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 97.3
+  },
+  "46": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.46",
+   "elec_pct": 97,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 9.5,
+   "dilapidated_pct": 2.3,
+   "tap_treated_pct": 78.5
+  },
+  "47": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.47",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 14.9,
+   "dilapidated_pct": 2.3,
+   "tap_treated_pct": 97.4
+  },
+  "48": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.48",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 10.799999999999999,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 94.8
+  },
+  "49": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.49",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 8.0,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 97.1
+  },
+  "53": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.53",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 1.3,
+   "wall_kutcha_pct": 5.8,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 97.1
+  },
+  "54": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.54",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 12.399999999999999,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 96.4
+  },
+  "55": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.55",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 10.5,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 95.7
+  },
+  "56": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.56",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 11.5,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 92.9
+  },
+  "22": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.22",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 5.2,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 98.8
+  },
+  "23": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.23",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.3,
+   "wall_kutcha_pct": 11.2,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 96.5
+  },
+  "24": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.24",
+   "elec_pct": 97.8,
+   "roof_kutcha_pct": 0.9,
+   "wall_kutcha_pct": 4.6000000000000005,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 67.8
+  },
+  "25": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.25",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 99.4
+  },
+  "26": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.26",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 3.9,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 98.2
+  },
+  "27": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.27",
+   "elec_pct": 98.1,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 4.6,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 96.7
+  },
+  "28": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.28",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 7.8,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 97.8
+  },
+  "41": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.41",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 9.7,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 96.5
+  },
+  "29": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.29",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 12.899999999999999,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 99.6
+  },
+  "31": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.31",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 14.5,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 99.4
+  },
+  "36": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.36",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 1.1,
+   "wall_kutcha_pct": 10.8,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 98.1
+  },
+  "38": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.38",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1.1,
+   "wall_kutcha_pct": 4.7,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 97.3
+  },
+  "39": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.39",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 0.2,
+   "dilapidated_pct": 0,
+   "tap_treated_pct": 99.7
+  },
+  "40": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.40",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 12.0,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 97.1
+  },
+  "18": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.18",
+   "elec_pct": 96.3,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 7.1,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 97.3
+  },
+  "19": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.19",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 3.7,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 97.3
+  },
+  "20": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.20",
+   "elec_pct": 91,
+   "roof_kutcha_pct": 11.5,
+   "wall_kutcha_pct": 17.5,
+   "dilapidated_pct": 5.4,
+   "tap_treated_pct": 92
+  },
+  "21": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.21",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 4.9,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 96.7
+  },
+  "30": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.30",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 1.1,
+   "wall_kutcha_pct": 9.4,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 96.5
+  },
+  "32": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.32",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 4,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 99.5
+  },
+  "33": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.33",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 2.9,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 98
+  },
+  "34": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.34",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 1.5,
+   "wall_kutcha_pct": 6.3,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 98.2
+  },
+  "35": {
+   "area": "GHMC (M Corp.) (Part) - Ward No.35",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1.5,
+   "wall_kutcha_pct": 9.299999999999999,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 95.9
+  }
+ },
+ "city_total": {
+  "area": "GHMC (M Corp.) (Part)",
+  "elec_pct": 97.7,
+  "roof_kutcha_pct": 2.8,
+  "wall_kutcha_pct": 7.699999999999999,
+  "dilapidated_pct": 1.6,
+  "tap_treated_pct": 96.5
+ },
+ "source": "Census of India 2011, Table HL-14 (Houselisting & Housing), ward level, district file; kutcha = roof grass/thatch/bamboo/mud + wall mud/unburnt-brick/grass %"
+}

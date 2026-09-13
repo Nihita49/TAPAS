@@ -1,0 +1,1 @@
+{"city": "Ahmedabad", "zoom": 13, "tile_min": [5744, 3554], "nx": 7, "ny": 7, "image": "basemap.jpg", "bbox": [72.431626307, 22.898093049, 72.719145593, 23.156313650999998], "n_wards": 48, "tile_source": "Esri World Imagery (\u00a9 Esri) -- real satellite", "boundary_source": "amd_Wards.geojson"}

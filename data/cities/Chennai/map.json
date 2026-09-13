@@ -1,0 +1,1 @@
+{"city": "Chennai", "zoom": 13, "tile_min": [5919, 3791], "nx": 6, "ny": 11, "image": "basemap.jpg", "bbox": [80.12680332092138, 12.825147623300392, 80.34459681780962, 13.262010349473359], "n_wards": 201, "tile_source": "Esri World Imagery (\u00a9 Esri) -- real satellite", "boundary_source": "che_Wards.geojson"}

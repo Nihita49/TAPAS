@@ -1,0 +1,12 @@
+{
+ "wards": {},
+ "city_total": {
+  "area": "Greater Mumbai (M Corp.) (Part)",
+  "elec_pct": 98.1,
+  "roof_kutcha_pct": 1.6,
+  "wall_kutcha_pct": 2.2,
+  "dilapidated_pct": 1.5,
+  "tap_treated_pct": 95.7
+ },
+ "source": "Census of India 2011 HL-14; Greater Mumbai total row (ward-level rows exist but Census numeric ward codes do not verifiably map to MCGM letter wards)"
+}

@@ -1,0 +1,12 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+requests>=2.31
+numpy>=1.26
+shapely>=2.0
+pythermalcomfort>=1.5
+# optional for real SMS/WhatsApp sends:
+# twilio>=9.0
+
+# live PostGIS read path (optional; app falls back to JSON):
+psycopg2-binary>=2.9
+playwright

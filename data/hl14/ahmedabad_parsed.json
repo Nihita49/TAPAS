@@ -1,0 +1,517 @@
+{
+ "wards": {
+  "1": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.1",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 3.3,
+   "wall_kutcha_pct": 3.7,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 95
+  },
+  "2": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.2",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 4.3,
+   "wall_kutcha_pct": 4.9,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 96.4
+  },
+  "3": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.3",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 4.9,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 92.3
+  },
+  "4": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.4",
+   "elec_pct": 97,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 5.5,
+   "dilapidated_pct": 3.6,
+   "tap_treated_pct": 85.5
+  },
+  "5": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.5",
+   "elec_pct": 97.3,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 7.3,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 94.9
+  },
+  "6": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.6",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 2,
+   "wall_kutcha_pct": 4.8999999999999995,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 92.1
+  },
+  "7": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.7",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 5.8999999999999995,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 83.1
+  },
+  "8": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.8",
+   "elec_pct": 97.5,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.7,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 78.6
+  },
+  "9": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.9",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 2,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 88.4
+  },
+  "10": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.10",
+   "elec_pct": 97.2,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 2.5,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 85
+  },
+  "11": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.11",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 2.6,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 88.3
+  },
+  "12": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.12",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 0.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 94.3
+  },
+  "13": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.13",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 96.8
+  },
+  "14": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.14",
+   "elec_pct": 96.2,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 7.1,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 91.9
+  },
+  "15": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.15",
+   "elec_pct": 96.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 7.3,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 92.5
+  },
+  "16": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.16",
+   "elec_pct": 96.1,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 4.7,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 92
+  },
+  "17": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.17",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 90.9
+  },
+  "18": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.18",
+   "elec_pct": 97.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 8,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 91.4
+  },
+  "19": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.19",
+   "elec_pct": 97.3,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 13.5,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 91.7
+  },
+  "20": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.20",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 3.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 94.8
+  },
+  "21": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.21",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 1.4,
+   "wall_kutcha_pct": 5.9,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 94
+  },
+  "22": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.22",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 4.9,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 85.8
+  },
+  "23": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.23",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.9000000000000001,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 78.3
+  },
+  "24": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.24",
+   "elec_pct": 98.4,
+   "roof_kutcha_pct": 2.1,
+   "wall_kutcha_pct": 6.8999999999999995,
+   "dilapidated_pct": 1,
+   "tap_treated_pct": 72.7
+  },
+  "25": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.25",
+   "elec_pct": 98.4,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 7.7,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 92.7
+  },
+  "26": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.26",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 78.9
+  },
+  "27": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.27",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 5.7,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 86.2
+  },
+  "28": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.28",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 0.9,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 90
+  },
+  "29": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.29",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 0.9,
+   "wall_kutcha_pct": 4.8,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 94.5
+  },
+  "30": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.30",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 2.9,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 94
+  },
+  "31": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.31",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 96.5
+  },
+  "32": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.32",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 94.1
+  },
+  "33": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.33",
+   "elec_pct": 98.5,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 6.1,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 84.7
+  },
+  "34": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.34",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 85.5
+  },
+  "35": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.35",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 3.4,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 87.2
+  },
+  "36": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.36",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.2,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 94.2
+  },
+  "37": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.37",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 2.4,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 90.1
+  },
+  "38": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.38",
+   "elec_pct": 97.8,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.8,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 96.3
+  },
+  "39": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.39",
+   "elec_pct": 97.2,
+   "roof_kutcha_pct": 0.9,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 89.8
+  },
+  "40": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.40",
+   "elec_pct": 97.2,
+   "roof_kutcha_pct": 2.8,
+   "wall_kutcha_pct": 5.3,
+   "dilapidated_pct": 1,
+   "tap_treated_pct": 64.5
+  },
+  "41": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.41",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 2.3,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 85.3
+  },
+  "42": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.42",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 5.1,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 70.9
+  },
+  "43": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.43",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 2.9,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 71.9
+  },
+  "44": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.44",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 50
+  },
+  "45": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.45",
+   "elec_pct": 98.5,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 78
+  },
+  "46": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.46",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.2,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 78.9
+  },
+  "47": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.47",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 73.3
+  },
+  "48": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.48",
+   "elec_pct": 98.1,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 3.5,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 72.6
+  },
+  "49": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.49",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1.9,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 77.7
+  },
+  "50": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.50",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.9,
+   "dilapidated_pct": 0,
+   "tap_treated_pct": 70.6
+  },
+  "51": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.51",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 54.5
+  },
+  "52": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.52",
+   "elec_pct": 96.1,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 10.7,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 63.7
+  },
+  "53": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.53",
+   "elec_pct": 94.9,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 6.6,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 45
+  },
+  "54": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.54",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 2,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 38.6
+  },
+  "55": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.55",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 2.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 62.9
+  },
+  "56": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.56",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 2.9,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 50.3
+  },
+  "57": {
+   "area": "Ahmadabad (M Corp.) (Part) - Ward No.57",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 1.9,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 47.6
+  },
+  "58": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.58",
+   "elec_pct": 94.8,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 12.6,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 23.9
+  },
+  "59": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.59",
+   "elec_pct": 83.4,
+   "roof_kutcha_pct": 0,
+   "wall_kutcha_pct": 25.9,
+   "dilapidated_pct": 2.2,
+   "tap_treated_pct": 28.3
+  },
+  "60": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.60",
+   "elec_pct": 94.7,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 18.1,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 38.7
+  },
+  "61": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.61",
+   "elec_pct": 92.8,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 23.0,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 28.6
+  },
+  "62": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.62",
+   "elec_pct": 86.1,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 39.4,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 17.3
+  },
+  "63": {
+   "area": "Ahmadabad (M Corp. + OG) (Part) - Ward No.63",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 45.3
+  }
+ },
+ "city_total": {
+  "area": "Ahmadabad (M Corp. + OG) (Part)",
+  "elec_pct": 94.1,
+  "roof_kutcha_pct": 0.7,
+  "wall_kutcha_pct": 15.0,
+  "dilapidated_pct": 1.3,
+  "tap_treated_pct": 30.2
+ },
+ "source": "Census of India 2011, Table HL-14 (Houselisting & Housing), ward level, district file; kutcha = roof grass/thatch/bamboo/mud + wall mud/unburnt-brick/grass %"
+}

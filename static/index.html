@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TAPAS · Thermal Assessment &amp; Protection Analytics System</title>
+<link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="mark" aria-hidden="true">T</div>
+    <div>
+      <div class="name">TAPAS</div>
+      <div class="tag">Thermal Assessment &amp; Protection Analytics System</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <div id="live" class="pill"></div>
+    <button id="outbox" class="pill ghost" title="SMS / WhatsApp alert log">Alert log</button>
+  </div>
+</header>
+
+<div id="statusbar" class="statusbar">
+  <span class="sb-dot" id="sbLive"></span>
+  <span id="sbText">Initialising live national heat-watch…</span>
+</div>
+
+<div id="simbar" class="simbar hidden">
+  <span class="sim-flag">Simulator (not live)</span>
+  <label>Heatwave preview&nbsp;<input id="simRange" type="range" min="0" max="6" step="1" value="0"/><b id="simVal">+0 °C</b></label>
+  <button id="simApply" class="btn sm">Preview</button>
+  <button id="simReset" class="btn ghost sm">Live (reset)</button>
+  <span class="sim-note">Raises ward temperature only to preview escalation, measures &amp; alerts. Default off; never shown as live.</span>
+</div>
+
+<main class="wrap">
+  <section id="mapPanel" class="panel mappanel">
+    <div class="map-top">
+      <div class="crumbs"><span id="crumbRoot" class="crumb cur">India</span><span id="sepCrumb" class="sep hidden">›</span><button id="crumbCity" class="crumb hidden">—</button></div>
+      <div id="layers" class="seg hidden">
+        <button data-l="htsi" class="on">Risk</button>
+        <button data-l="mort">Mortality</button>
+        <button data-l="hosp">Hospitalization Spike</button>
+        <button data-l="utci">UTCI</button>
+        <button data-l="veg">Vegetation</button>
+      </div>
+    </div>
+    <div id="gis" class="gis">
+      <img id="base" class="hidden" alt="satellite basemap"/>
+      <div id="indiaWrap" class="india-wrap"></div>
+      <svg id="overlay" class="hidden"></svg>
+      <div id="hov" class="hov"></div>
+    </div>
+    <div id="legend" class="legend"></div>
+    <div id="srcnote" class="srcnote"></div>
+  </section>
+
+  <aside id="side" class="panel side">
+    <div id="sidepanel"></div>
+  </aside>
+</main>
+
+
+<div id="modal" class="modal hidden"><div class="mcard"><button id="mclose" class="mx">×</button><div id="mbody"></div></div></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

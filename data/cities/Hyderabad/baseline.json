@@ -1,0 +1,36 @@
+{
+ "city": "Hyderabad",
+ "lat": 17.385,
+ "lon": 78.4867,
+ "source": "ECMWF ERA5 reanalysis (Open-Meteo archive), daily Tmax 2014-2024",
+ "unit": "degC",
+ "p90_monthly_tmax": {
+  "1": 29.9,
+  "2": 33.5,
+  "3": 37.4,
+  "4": 39.0,
+  "5": 39.6,
+  "6": 37.0,
+  "7": 32.0,
+  "8": 30.9,
+  "9": 30.6,
+  "10": 32.0,
+  "11": 30.7,
+  "12": 30.2
+ },
+ "mean_monthly_tmax": {
+  "1": 28.3,
+  "2": 31.2,
+  "3": 34.3,
+  "4": 36.6,
+  "5": 37.0,
+  "6": 32.5,
+  "7": 29.1,
+  "8": 28.9,
+  "9": 28.8,
+  "10": 29.9,
+  "11": 29.2,
+  "12": 28.1
+ },
+ "note": "Observed 90th-percentile of daily max temp per month. Baseline/threshold only - never a live value."
+}

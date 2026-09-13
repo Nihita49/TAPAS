@@ -1,0 +1,36 @@
+{
+ "city": "Mumbai",
+ "lat": 19.076,
+ "lon": 72.877,
+ "source": "ECMWF ERA5 reanalysis (Open-Meteo archive), daily Tmax 2014-2024",
+ "unit": "degC",
+ "p90_monthly_tmax": {
+  "1": 31.6,
+  "2": 34.1,
+  "3": 35.3,
+  "4": 35.2,
+  "5": 34.1,
+  "6": 33.2,
+  "7": 29.2,
+  "8": 29.0,
+  "9": 29.9,
+  "10": 33.6,
+  "11": 33.9,
+  "12": 32.8
+ },
+ "mean_monthly_tmax": {
+  "1": 29.1,
+  "2": 30.7,
+  "3": 32.1,
+  "4": 32.8,
+  "5": 32.9,
+  "6": 30.2,
+  "7": 27.9,
+  "8": 27.9,
+  "9": 28.5,
+  "10": 31.1,
+  "11": 32.3,
+  "12": 30.6
+ },
+ "note": "Observed 90th-percentile of daily max temp per month. Baseline/threshold only - never a live value."
+}

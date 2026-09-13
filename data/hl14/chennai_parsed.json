@@ -1,0 +1,1253 @@
+{
+ "wards": {
+  "1": {
+   "area": "Chennai (M Corp.) - Ward No.1",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 2.9,
+   "wall_kutcha_pct": 2.4,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 68.5
+  },
+  "2": {
+   "area": "Chennai (M Corp.) - Ward No.2",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 2.8,
+   "wall_kutcha_pct": 2.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 86.3
+  },
+  "3": {
+   "area": "Chennai (M Corp.) - Ward No.3",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 2.1,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 90.4
+  },
+  "4": {
+   "area": "Chennai (M Corp.) - Ward No.4",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 6,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 1,
+   "tap_treated_pct": 84.6
+  },
+  "5": {
+   "area": "Chennai (M Corp.) - Ward No.5",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 4,
+   "wall_kutcha_pct": 5.1,
+   "dilapidated_pct": 1.4,
+   "tap_treated_pct": 84.9
+  },
+  "6": {
+   "area": "Chennai (M Corp.) - Ward No.6",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 4.9,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 2.2,
+   "tap_treated_pct": 93.7
+  },
+  "7": {
+   "area": "Chennai (M Corp.) - Ward No.7",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 3.9,
+   "wall_kutcha_pct": 4.1,
+   "dilapidated_pct": 3.8,
+   "tap_treated_pct": 85.3
+  },
+  "8": {
+   "area": "Chennai (M Corp.) - Ward No.8",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 1.4,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 80.2
+  },
+  "9": {
+   "area": "Chennai (M Corp.) - Ward No.9",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 80.7
+  },
+  "10": {
+   "area": "Chennai (M Corp.) - Ward No.10",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 2.3,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 86.7
+  },
+  "11": {
+   "area": "Chennai (M Corp.) - Ward No.11",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 5.3,
+   "wall_kutcha_pct": 5.5,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 86
+  },
+  "12": {
+   "area": "Chennai (M Corp.) - Ward No.12",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 2.8,
+   "wall_kutcha_pct": 0.6000000000000001,
+   "dilapidated_pct": 2.3,
+   "tap_treated_pct": 65.8
+  },
+  "13": {
+   "area": "Chennai (M Corp.) - Ward No.13",
+   "elec_pct": 97.1,
+   "roof_kutcha_pct": 5.5,
+   "wall_kutcha_pct": 6.0,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 86.8
+  },
+  "14": {
+   "area": "Chennai (M Corp.) - Ward No.14",
+   "elec_pct": 98.5,
+   "roof_kutcha_pct": 8.7,
+   "wall_kutcha_pct": 6.4,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 66.1
+  },
+  "15": {
+   "area": "Chennai (M Corp.) - Ward No.15",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 94.4
+  },
+  "16": {
+   "area": "Chennai (M Corp.) - Ward No.16",
+   "elec_pct": 100,
+   "roof_kutcha_pct": 2.9,
+   "wall_kutcha_pct": 2.4000000000000004,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 93.3
+  },
+  "17": {
+   "area": "Chennai (M Corp.) - Ward No.17",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 7.1,
+   "wall_kutcha_pct": 4.6,
+   "dilapidated_pct": 2.5,
+   "tap_treated_pct": 74.7
+  },
+  "18": {
+   "area": "Chennai (M Corp.) - Ward No.18",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 1.7000000000000002,
+   "dilapidated_pct": 2.5,
+   "tap_treated_pct": 62.8
+  },
+  "19": {
+   "area": "Chennai (M Corp.) - Ward No.19",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 4.3,
+   "dilapidated_pct": 2.8,
+   "tap_treated_pct": 87.3
+  },
+  "20": {
+   "area": "Chennai (M Corp.) - Ward No.20",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 2.5,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 81.8
+  },
+  "21": {
+   "area": "Chennai (M Corp.) - Ward No.21",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 4.5,
+   "wall_kutcha_pct": 4.8,
+   "dilapidated_pct": 6.5,
+   "tap_treated_pct": 94.1
+  },
+  "22": {
+   "area": "Chennai (M Corp.) - Ward No.22",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 1.2,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 63.7
+  },
+  "23": {
+   "area": "Chennai (M Corp.) - Ward No.23",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 0.6,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 89.8
+  },
+  "24": {
+   "area": "Chennai (M Corp.) - Ward No.24",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 2.8,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 85
+  },
+  "25": {
+   "area": "Chennai (M Corp.) - Ward No.25",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 3.5,
+   "wall_kutcha_pct": 2.1,
+   "dilapidated_pct": 2.9,
+   "tap_treated_pct": 87.1
+  },
+  "26": {
+   "area": "Chennai (M Corp.) - Ward No.26",
+   "elec_pct": 98.3,
+   "roof_kutcha_pct": 2.8,
+   "wall_kutcha_pct": 1.4,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 74.4
+  },
+  "27": {
+   "area": "Chennai (M Corp.) - Ward No.27",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 2.9,
+   "wall_kutcha_pct": 4.8999999999999995,
+   "dilapidated_pct": 3.8,
+   "tap_treated_pct": 72.4
+  },
+  "28": {
+   "area": "Chennai (M Corp.) - Ward No.28",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 10.1,
+   "wall_kutcha_pct": 11.4,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 80.7
+  },
+  "29": {
+   "area": "Chennai (M Corp.) - Ward No.29",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 3.5,
+   "dilapidated_pct": 2.5,
+   "tap_treated_pct": 80.3
+  },
+  "30": {
+   "area": "Chennai (M Corp.) - Ward No.30",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 77.7
+  },
+  "31": {
+   "area": "Chennai (M Corp.) - Ward No.31",
+   "elec_pct": 97.1,
+   "roof_kutcha_pct": 13.7,
+   "wall_kutcha_pct": 11.4,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 66.2
+  },
+  "32": {
+   "area": "Chennai (M Corp.) - Ward No.32",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 12.5,
+   "wall_kutcha_pct": 6.7,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 72.5
+  },
+  "33": {
+   "area": "Chennai (M Corp.) - Ward No.33",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 2.4,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 1.5,
+   "tap_treated_pct": 74.6
+  },
+  "34": {
+   "area": "Chennai (M Corp.) - Ward No.34",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.7,
+   "wall_kutcha_pct": 2.5999999999999996,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 75.1
+  },
+  "35": {
+   "area": "Chennai (M Corp.) - Ward No.35",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 3,
+   "wall_kutcha_pct": 3.5,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 79.4
+  },
+  "36": {
+   "area": "Chennai (M Corp.) - Ward No.36",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 9.3,
+   "wall_kutcha_pct": 8.4,
+   "dilapidated_pct": 2,
+   "tap_treated_pct": 70.6
+  },
+  "37": {
+   "area": "Chennai (M Corp.) - Ward No.37",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 1.2,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 81.2
+  },
+  "38": {
+   "area": "Chennai (M Corp.) - Ward No.38",
+   "elec_pct": 94.1,
+   "roof_kutcha_pct": 10.2,
+   "wall_kutcha_pct": 7.699999999999999,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 78.3
+  },
+  "39": {
+   "area": "Chennai (M Corp.) - Ward No.39",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 6.1,
+   "wall_kutcha_pct": 2.8000000000000003,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 65.2
+  },
+  "40": {
+   "area": "Chennai (M Corp.) - Ward No.40",
+   "elec_pct": 98.1,
+   "roof_kutcha_pct": 7.5,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 2.3,
+   "tap_treated_pct": 62.5
+  },
+  "41": {
+   "area": "Chennai (M Corp.) - Ward No.41",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 3.8,
+   "wall_kutcha_pct": 3.4,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 67.9
+  },
+  "42": {
+   "area": "Chennai (M Corp.) - Ward No.42",
+   "elec_pct": 97.7,
+   "roof_kutcha_pct": 7.1,
+   "wall_kutcha_pct": 3.4000000000000004,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 75.3
+  },
+  "43": {
+   "area": "Chennai (M Corp.) - Ward No.43",
+   "elec_pct": 98.5,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 4.0,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 83.4
+  },
+  "44": {
+   "area": "Chennai (M Corp.) - Ward No.44",
+   "elec_pct": 97.4,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 58.8
+  },
+  "45": {
+   "area": "Chennai (M Corp.) - Ward No.45",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 5.4,
+   "wall_kutcha_pct": 9.0,
+   "dilapidated_pct": 7.6,
+   "tap_treated_pct": 73.9
+  },
+  "46": {
+   "area": "Chennai (M Corp.) - Ward No.46",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.2,
+   "wall_kutcha_pct": 1,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 74.6
+  },
+  "47": {
+   "area": "Chennai (M Corp.) - Ward No.47",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 10.3,
+   "wall_kutcha_pct": 11.0,
+   "dilapidated_pct": 1.8,
+   "tap_treated_pct": 82.3
+  },
+  "48": {
+   "area": "Chennai (M Corp.) - Ward No.48",
+   "elec_pct": 96.6,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 3.1,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 83.7
+  },
+  "49": {
+   "area": "Chennai (M Corp.) - Ward No.49",
+   "elec_pct": 97.7,
+   "roof_kutcha_pct": 7.5,
+   "wall_kutcha_pct": 5.7,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 71.7
+  },
+  "50": {
+   "area": "Chennai (M Corp.) - Ward No.50",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 92.2
+  },
+  "51": {
+   "area": "Chennai (M Corp.) - Ward No.51",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 3.1,
+   "wall_kutcha_pct": 2.6,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 86
+  },
+  "52": {
+   "area": "Chennai (M Corp.) - Ward No.52",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 4,
+   "wall_kutcha_pct": 2.4,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 67.5
+  },
+  "53": {
+   "area": "Chennai (M Corp.) - Ward No.53",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 6,
+   "wall_kutcha_pct": 3.7,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 68.9
+  },
+  "54": {
+   "area": "Chennai (M Corp.) - Ward No.54",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 3.6,
+   "wall_kutcha_pct": 4.6,
+   "dilapidated_pct": 1,
+   "tap_treated_pct": 73.8
+  },
+  "55": {
+   "area": "Chennai (M Corp.) - Ward No.55",
+   "elec_pct": 80.8,
+   "roof_kutcha_pct": 11.9,
+   "wall_kutcha_pct": 10.0,
+   "dilapidated_pct": 3.3,
+   "tap_treated_pct": 83
+  },
+  "56": {
+   "area": "Chennai (M Corp.) - Ward No.56",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 77
+  },
+  "57": {
+   "area": "Chennai (M Corp.) - Ward No.57",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 1.2000000000000002,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 69.9
+  },
+  "58": {
+   "area": "Chennai (M Corp.) - Ward No.58",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 75.3
+  },
+  "59": {
+   "area": "Chennai (M Corp.) - Ward No.59",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 1.4,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 88.9
+  },
+  "60": {
+   "area": "Chennai (M Corp.) - Ward No.60",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 5.5,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 84.4
+  },
+  "61": {
+   "area": "Chennai (M Corp.) - Ward No.61",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 4,
+   "wall_kutcha_pct": 2.1,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 81.2
+  },
+  "62": {
+   "area": "Chennai (M Corp.) - Ward No.62",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 4.6,
+   "wall_kutcha_pct": 2.5,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 85.3
+  },
+  "63": {
+   "area": "Chennai (M Corp.) - Ward No.63",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 4.5,
+   "wall_kutcha_pct": 1.8,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 74.5
+  },
+  "64": {
+   "area": "Chennai (M Corp.) - Ward No.64",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.4,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 79.3
+  },
+  "65": {
+   "area": "Chennai (M Corp.) - Ward No.65",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 3.8,
+   "wall_kutcha_pct": 2.0999999999999996,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 82.9
+  },
+  "66": {
+   "area": "Chennai (M Corp.) - Ward No.66",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 5.2,
+   "wall_kutcha_pct": 2.4,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 90.9
+  },
+  "67": {
+   "area": "Chennai (M Corp.) - Ward No.67",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.3,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 85.9
+  },
+  "68": {
+   "area": "Chennai (M Corp.) - Ward No.68",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 3.8,
+   "wall_kutcha_pct": 2.5,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 81.2
+  },
+  "69": {
+   "area": "Chennai (M Corp.) - Ward No.69",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 5.8,
+   "wall_kutcha_pct": 0.8999999999999999,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 65.5
+  },
+  "70": {
+   "area": "Chennai (M Corp.) - Ward No.70",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 2.5,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 91.3
+  },
+  "71": {
+   "area": "Chennai (M Corp.) - Ward No.71",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.3,
+   "wall_kutcha_pct": 1.2,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 79.7
+  },
+  "72": {
+   "area": "Chennai (M Corp.) - Ward No.72",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 3.6,
+   "wall_kutcha_pct": 3.0,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 82.5
+  },
+  "73": {
+   "area": "Chennai (M Corp.) - Ward No.73",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 5,
+   "wall_kutcha_pct": 2.7,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 88
+  },
+  "74": {
+   "area": "Chennai (M Corp.) - Ward No.74",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 0.5,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 84.9
+  },
+  "75": {
+   "area": "Chennai (M Corp.) - Ward No.75",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.7,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 79.3
+  },
+  "76": {
+   "area": "Chennai (M Corp.) - Ward No.76",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 5.3,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 88.6
+  },
+  "77": {
+   "area": "Chennai (M Corp.) - Ward No.77",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 4.1,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 82.8
+  },
+  "78": {
+   "area": "Chennai (M Corp.) - Ward No.78",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 3.2,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 2,
+   "tap_treated_pct": 86.2
+  },
+  "79": {
+   "area": "Chennai (M Corp.) - Ward No.79",
+   "elec_pct": 98,
+   "roof_kutcha_pct": 5.9,
+   "wall_kutcha_pct": 4.5,
+   "dilapidated_pct": 1.4,
+   "tap_treated_pct": 67.8
+  },
+  "80": {
+   "area": "Chennai (M Corp.) - Ward No.80",
+   "elec_pct": 94.6,
+   "roof_kutcha_pct": 2.4,
+   "wall_kutcha_pct": 4.9,
+   "dilapidated_pct": 1.3,
+   "tap_treated_pct": 67.9
+  },
+  "81": {
+   "area": "Chennai (M Corp.) - Ward No.81",
+   "elec_pct": 98.2,
+   "roof_kutcha_pct": 3.3,
+   "wall_kutcha_pct": 3.3,
+   "dilapidated_pct": 2.6,
+   "tap_treated_pct": 76.8
+  },
+  "82": {
+   "area": "Chennai (M Corp.) - Ward No.82",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 6.2,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 3.3,
+   "tap_treated_pct": 90
+  },
+  "83": {
+   "area": "Chennai (M Corp.) - Ward No.83",
+   "elec_pct": 98.8,
+   "roof_kutcha_pct": 2.9,
+   "wall_kutcha_pct": 2.1,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 59.5
+  },
+  "84": {
+   "area": "Chennai (M Corp.) - Ward No.84",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 0.6,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 82.4
+  },
+  "85": {
+   "area": "Chennai (M Corp.) - Ward No.85",
+   "elec_pct": 97.6,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 0.4,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 58.5
+  },
+  "86": {
+   "area": "Chennai (M Corp.) - Ward No.86",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.2,
+   "wall_kutcha_pct": 2.3,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 72.5
+  },
+  "87": {
+   "area": "Chennai (M Corp.) - Ward No.87",
+   "elec_pct": 100,
+   "roof_kutcha_pct": 1.4,
+   "wall_kutcha_pct": 2.6999999999999997,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 70.3
+  },
+  "88": {
+   "area": "Chennai (M Corp.) - Ward No.88",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 6.0,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 73.1
+  },
+  "89": {
+   "area": "Chennai (M Corp.) - Ward No.89",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 0.4,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 70.4
+  },
+  "90": {
+   "area": "Chennai (M Corp.) - Ward No.90",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 6.3,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 69.7
+  },
+  "91": {
+   "area": "Chennai (M Corp.) - Ward No.91",
+   "elec_pct": 97.5,
+   "roof_kutcha_pct": 9.8,
+   "wall_kutcha_pct": 9.2,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 75
+  },
+  "92": {
+   "area": "Chennai (M Corp.) - Ward No.92",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 6.7,
+   "dilapidated_pct": 0,
+   "tap_treated_pct": 85
+  },
+  "93": {
+   "area": "Chennai (M Corp.) - Ward No.93",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.4,
+   "wall_kutcha_pct": 0.2,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 86.6
+  },
+  "94": {
+   "area": "Chennai (M Corp.) - Ward No.94",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 4.5,
+   "wall_kutcha_pct": 1.4000000000000001,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 67.2
+  },
+  "95": {
+   "area": "Chennai (M Corp.) - Ward No.95",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 3.9,
+   "wall_kutcha_pct": 0.7,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 83
+  },
+  "96": {
+   "area": "Chennai (M Corp.) - Ward No.96",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 2.2,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0,
+   "tap_treated_pct": 70.4
+  },
+  "97": {
+   "area": "Chennai (M Corp.) - Ward No.97",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 0.5,
+   "wall_kutcha_pct": 1.2000000000000002,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 81.8
+  },
+  "98": {
+   "area": "Chennai (M Corp.) - Ward No.98",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 2.9,
+   "wall_kutcha_pct": 4.7,
+   "dilapidated_pct": 2,
+   "tap_treated_pct": 90
+  },
+  "99": {
+   "area": "Chennai (M Corp.) - Ward No.99",
+   "elec_pct": 98,
+   "roof_kutcha_pct": 1.5,
+   "wall_kutcha_pct": 3.8,
+   "dilapidated_pct": 4.7,
+   "tap_treated_pct": 75.9
+  },
+  "100": {
+   "area": "Chennai (M Corp.) - Ward No.100",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 0.6,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 73.3
+  },
+  "101": {
+   "area": "Chennai (M Corp.) - Ward No.101",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 2,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 74.2
+  },
+  "102": {
+   "area": "Chennai (M Corp.) - Ward No.102",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 0.1,
+   "wall_kutcha_pct": 6.7,
+   "dilapidated_pct": 1.9,
+   "tap_treated_pct": 68.9
+  },
+  "103": {
+   "area": "Chennai (M Corp.) - Ward No.103",
+   "elec_pct": 98.3,
+   "roof_kutcha_pct": 4,
+   "wall_kutcha_pct": 2.8,
+   "dilapidated_pct": 1.6,
+   "tap_treated_pct": 70.1
+  },
+  "104": {
+   "area": "Chennai (M Corp.) - Ward No.104",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 7.1,
+   "wall_kutcha_pct": 5.199999999999999,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 83.5
+  },
+  "105": {
+   "area": "Chennai (M Corp.) - Ward No.105",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1.5,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 90.9
+  },
+  "106": {
+   "area": "Chennai (M Corp.) - Ward No.106",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 1.4,
+   "wall_kutcha_pct": 1.4,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 79.3
+  },
+  "107": {
+   "area": "Chennai (M Corp.) - Ward No.107",
+   "elec_pct": 97.1,
+   "roof_kutcha_pct": 3.3,
+   "wall_kutcha_pct": 3.4,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 79.7
+  },
+  "108": {
+   "area": "Chennai (M Corp.) - Ward No.108",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 4.2,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 80
+  },
+  "109": {
+   "area": "Chennai (M Corp.) - Ward No.109",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 6,
+   "wall_kutcha_pct": 2.3,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 82.8
+  },
+  "110": {
+   "area": "Chennai (M Corp.) - Ward No.110",
+   "elec_pct": 95.7,
+   "roof_kutcha_pct": 15.2,
+   "wall_kutcha_pct": 6.8999999999999995,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 45.6
+  },
+  "111": {
+   "area": "Chennai (M Corp.) - Ward No.111",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 1.4000000000000001,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 84.6
+  },
+  "112": {
+   "area": "Chennai (M Corp.) - Ward No.112",
+   "elec_pct": 96.9,
+   "roof_kutcha_pct": 1.9,
+   "wall_kutcha_pct": 2.0,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 80.2
+  },
+  "113": {
+   "area": "Chennai (M Corp.) - Ward No.113",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 2.7,
+   "wall_kutcha_pct": 0.6,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 76.9
+  },
+  "114": {
+   "area": "Chennai (M Corp.) - Ward No.114",
+   "elec_pct": 95.7,
+   "roof_kutcha_pct": 9.7,
+   "wall_kutcha_pct": 5.199999999999999,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 67.1
+  },
+  "115": {
+   "area": "Chennai (M Corp.) - Ward No.115",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 2.7,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 79.3
+  },
+  "116": {
+   "area": "Chennai (M Corp.) - Ward No.116",
+   "elec_pct": 97.4,
+   "roof_kutcha_pct": 2,
+   "wall_kutcha_pct": 2.8,
+   "dilapidated_pct": 1.9,
+   "tap_treated_pct": 74
+  },
+  "117": {
+   "area": "Chennai (M Corp.) - Ward No.117",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 3.4,
+   "wall_kutcha_pct": 2.0,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 78.4
+  },
+  "118": {
+   "area": "Chennai (M Corp.) - Ward No.118",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 4.5,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 90.5
+  },
+  "119": {
+   "area": "Chennai (M Corp.) - Ward No.119",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 77.2
+  },
+  "120": {
+   "area": "Chennai (M Corp.) - Ward No.120",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 5.3,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 80.8
+  },
+  "121": {
+   "area": "Chennai (M Corp.) - Ward No.121",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 4.3,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 69.9
+  },
+  "122": {
+   "area": "Chennai (M Corp.) - Ward No.122",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 1.8,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0,
+   "tap_treated_pct": 80.2
+  },
+  "123": {
+   "area": "Chennai (M Corp.) - Ward No.123",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 1.1,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 81.7
+  },
+  "124": {
+   "area": "Chennai (M Corp.) - Ward No.124",
+   "elec_pct": 98.6,
+   "roof_kutcha_pct": 3.6,
+   "wall_kutcha_pct": 0.4,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 80.4
+  },
+  "125": {
+   "area": "Chennai (M Corp.) - Ward No.125",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 0.5,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 79.9
+  },
+  "126": {
+   "area": "Chennai (M Corp.) - Ward No.126",
+   "elec_pct": 99.1,
+   "roof_kutcha_pct": 1.2,
+   "wall_kutcha_pct": 0,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 88.2
+  },
+  "127": {
+   "area": "Chennai (M Corp.) - Ward No.127",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 2.8,
+   "wall_kutcha_pct": 1.7000000000000002,
+   "dilapidated_pct": 2.8,
+   "tap_treated_pct": 59.9
+  },
+  "128": {
+   "area": "Chennai (M Corp.) - Ward No.128",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 2,
+   "wall_kutcha_pct": 2.1999999999999997,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 78.4
+  },
+  "129": {
+   "area": "Chennai (M Corp.) - Ward No.129",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 1.7,
+   "wall_kutcha_pct": 1.0,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 78
+  },
+  "130": {
+   "area": "Chennai (M Corp.) - Ward No.130",
+   "elec_pct": 99.9,
+   "roof_kutcha_pct": 2.3,
+   "wall_kutcha_pct": 0.9,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 73.4
+  },
+  "131": {
+   "area": "Chennai (M Corp.) - Ward No.131",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 2.3,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 69.6
+  },
+  "132": {
+   "area": "Chennai (M Corp.) - Ward No.132",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 3.6,
+   "wall_kutcha_pct": 2.0,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 71.3
+  },
+  "133": {
+   "area": "Chennai (M Corp.) - Ward No.133",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 3.6,
+   "wall_kutcha_pct": 0.9,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 75.9
+  },
+  "134": {
+   "area": "Chennai (M Corp.) - Ward No.134",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 1,
+   "wall_kutcha_pct": 0.7,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 82.3
+  },
+  "135": {
+   "area": "Chennai (M Corp.) - Ward No.135",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 4.7,
+   "wall_kutcha_pct": 2.0999999999999996,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 87.7
+  },
+  "136": {
+   "area": "Chennai (M Corp.) - Ward No.136",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 4,
+   "wall_kutcha_pct": 2.1,
+   "dilapidated_pct": 1.4,
+   "tap_treated_pct": 72.6
+  },
+  "137": {
+   "area": "Chennai (M Corp.) - Ward No.137",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 2.6,
+   "wall_kutcha_pct": 0.8,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 86.4
+  },
+  "138": {
+   "area": "Chennai (M Corp.) - Ward No.138",
+   "elec_pct": 99,
+   "roof_kutcha_pct": 3.8,
+   "wall_kutcha_pct": 1.3,
+   "dilapidated_pct": 0.1,
+   "tap_treated_pct": 77.5
+  },
+  "139": {
+   "area": "Chennai (M Corp.) - Ward No.139",
+   "elec_pct": 97.5,
+   "roof_kutcha_pct": 12.4,
+   "wall_kutcha_pct": 9.399999999999999,
+   "dilapidated_pct": 2.5,
+   "tap_treated_pct": 80.3
+  },
+  "140": {
+   "area": "Chennai (M Corp.) - Ward No.140",
+   "elec_pct": 98.9,
+   "roof_kutcha_pct": 3.2,
+   "wall_kutcha_pct": 0.6,
+   "dilapidated_pct": 0.7,
+   "tap_treated_pct": 85
+  },
+  "141": {
+   "area": "Chennai (M Corp.) - Ward No.141",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 3.4,
+   "wall_kutcha_pct": 2.2,
+   "dilapidated_pct": 0.6,
+   "tap_treated_pct": 84.7
+  },
+  "142": {
+   "area": "Chennai (M Corp.) - Ward No.142",
+   "elec_pct": 99.8,
+   "roof_kutcha_pct": 1.6,
+   "wall_kutcha_pct": 1.7,
+   "dilapidated_pct": 0.5,
+   "tap_treated_pct": 82.5
+  },
+  "143": {
+   "area": "Chennai (M Corp.) - Ward No.143",
+   "elec_pct": 99.6,
+   "roof_kutcha_pct": 0.8,
+   "wall_kutcha_pct": 0.30000000000000004,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 75
+  },
+  "144": {
+   "area": "Chennai (M Corp.) - Ward No.144",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 2.6,
+   "wall_kutcha_pct": 0.6000000000000001,
+   "dilapidated_pct": 1.2,
+   "tap_treated_pct": 81.3
+  },
+  "145": {
+   "area": "Chennai (M Corp.) - Ward No.145",
+   "elec_pct": 99.7,
+   "roof_kutcha_pct": 5.9,
+   "wall_kutcha_pct": 2.5,
+   "dilapidated_pct": 1.7,
+   "tap_treated_pct": 80
+  },
+  "146": {
+   "area": "Chennai (M Corp.) - Ward No.146",
+   "elec_pct": 97.2,
+   "roof_kutcha_pct": 4.2,
+   "wall_kutcha_pct": 3.9,
+   "dilapidated_pct": 2.2,
+   "tap_treated_pct": 83.2
+  },
+  "147": {
+   "area": "Chennai (M Corp.) - Ward No.147",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 4.9,
+   "wall_kutcha_pct": 2.0,
+   "dilapidated_pct": 1,
+   "tap_treated_pct": 71.2
+  },
+  "148": {
+   "area": "Chennai (M Corp.) - Ward No.148",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 2,
+   "wall_kutcha_pct": 2.2,
+   "dilapidated_pct": 0.2,
+   "tap_treated_pct": 82.5
+  },
+  "149": {
+   "area": "Chennai (M Corp.) - Ward No.149",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 0.7,
+   "wall_kutcha_pct": 0.7,
+   "dilapidated_pct": 0.3,
+   "tap_treated_pct": 77.4
+  },
+  "150": {
+   "area": "Chennai (M Corp.) - Ward No.150",
+   "elec_pct": 97.9,
+   "roof_kutcha_pct": 15.6,
+   "wall_kutcha_pct": 9.6,
+   "dilapidated_pct": 3.5,
+   "tap_treated_pct": 79.1
+  },
+  "151": {
+   "area": "Chennai (M Corp.) - Ward No.151",
+   "elec_pct": 99.5,
+   "roof_kutcha_pct": 2.6,
+   "wall_kutcha_pct": 1.5,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 88.2
+  },
+  "152": {
+   "area": "Chennai (M Corp.) - Ward No.152",
+   "elec_pct": 99.3,
+   "roof_kutcha_pct": 6.3,
+   "wall_kutcha_pct": 3.2,
+   "dilapidated_pct": 1.1,
+   "tap_treated_pct": 78.8
+  },
+  "153": {
+   "area": "Chennai (M Corp.) - Ward No.153",
+   "elec_pct": 99.2,
+   "roof_kutcha_pct": 3.4,
+   "wall_kutcha_pct": 1.6,
+   "dilapidated_pct": 0.4,
+   "tap_treated_pct": 85
+  },
+  "154": {
+   "area": "Chennai (M Corp.) - Ward No.154",
+   "elec_pct": 98.7,
+   "roof_kutcha_pct": 6.7,
+   "wall_kutcha_pct": 5.9,
+   "dilapidated_pct": 0.9,
+   "tap_treated_pct": 76
+  },
+  "155": {
+   "area": "Chennai (M Corp.) - Ward No.155",
+   "elec_pct": 99.4,
+   "roof_kutcha_pct": 4.1,
+   "wall_kutcha_pct": 3.5,
+   "dilapidated_pct": 0.8,
+   "tap_treated_pct": 73.9
+  }
+ },
+ "city_total": {
+  "area": "Chennai (M Corp.)",
+  "elec_pct": 99.1,
+  "roof_kutcha_pct": 3.8,
+  "wall_kutcha_pct": 2.8,
+  "dilapidated_pct": 0.9,
+  "tap_treated_pct": 79
+ },
+ "source": "Census of India 2011, Table HL-14 (Houselisting & Housing), ward level, district file; kutcha = roof grass/thatch/bamboo/mud + wall mud/unburnt-brick/grass %"
+}

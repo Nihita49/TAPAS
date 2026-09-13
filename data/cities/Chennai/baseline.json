@@ -1,0 +1,36 @@
+{
+ "city": "Chennai",
+ "lat": 13.0827,
+ "lon": 80.2707,
+ "source": "ECMWF ERA5 reanalysis (Open-Meteo archive), daily Tmax 2014-2024",
+ "unit": "degC",
+ "p90_monthly_tmax": {
+  "1": 28.9,
+  "2": 31.0,
+  "3": 33.8,
+  "4": 35.9,
+  "5": 38.5,
+  "6": 38.1,
+  "7": 36.6,
+  "8": 35.4,
+  "9": 34.5,
+  "10": 33.5,
+  "11": 30.3,
+  "12": 28.9
+ },
+ "mean_monthly_tmax": {
+  "1": 28.0,
+  "2": 29.6,
+  "3": 31.9,
+  "4": 33.9,
+  "5": 35.2,
+  "6": 35.4,
+  "7": 34.0,
+  "8": 33.2,
+  "9": 32.4,
+  "10": 30.9,
+  "11": 28.6,
+  "12": 27.9
+ },
+ "note": "Observed 90th-percentile of daily max temp per month. Baseline/threshold only - never a live value."
+}

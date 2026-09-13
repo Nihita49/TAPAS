@@ -1,0 +1,36 @@
+{
+ "city": "Ahmedabad",
+ "lat": 23.0225,
+ "lon": 72.5714,
+ "source": "ECMWF ERA5 reanalysis (Open-Meteo archive), daily Tmax 2014-2024",
+ "unit": "degC",
+ "p90_monthly_tmax": {
+  "1": 29.6,
+  "2": 34.5,
+  "3": 38.8,
+  "4": 41.6,
+  "5": 43.1,
+  "6": 41.7,
+  "7": 36.9,
+  "8": 32.9,
+  "9": 34.1,
+  "10": 36.3,
+  "11": 34.1,
+  "12": 31.2
+ },
+ "mean_monthly_tmax": {
+  "1": 27.0,
+  "2": 30.8,
+  "3": 34.9,
+  "4": 39.2,
+  "5": 41.0,
+  "6": 38.0,
+  "7": 32.4,
+  "8": 30.9,
+  "9": 31.6,
+  "10": 33.9,
+  "11": 32.0,
+  "12": 28.2
+ },
+ "note": "Observed 90th-percentile of daily max temp per month. Baseline/threshold only - never a live value."
+}
