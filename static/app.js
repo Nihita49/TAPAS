@@ -408,7 +408,7 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
   <div id="simAnchor"></div>
   ${mortChart(s)}
   <div class="kpis">
-    ${kpi("UTCI","",c.utci!=null?c.utci+" °C":"Insufficient")}
+    ${kpi("UTCI",c.utci!=null?c.utci+" °C":"Insufficient")}
     ${kpi("Air temp",c.tair!=null?c.tair+" °C":"—")}
     ${kpi("Day max",c.daymax!=null?c.daymax+" °C":"—")}
     ${kpi("vs city normal",c.anom!=null?(c.anom>=0?"+":"")+c.anom+" °C":"—")}
