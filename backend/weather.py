@@ -160,3 +160,33 @@ def fetch_many(centroids, max_workers=8, forecast_days=6):
         for wid, res in ex.map(one, centroids.items()):
             out[wid] = res
     return out
+    
+def fetch_many_paced(centroids, max_workers=5, per_minute_limit=55):
+    """Fetch weather for many locations while respecting OpenWeatherMap's
+    free-tier 60 requests/minute cap. Processes in chunks sized to the limit,
+    pausing between chunks so each chunk's wall-clock time is at least 60s
+    (unless it's the last chunk) — avoids OWM-side throttling that was
+    causing slow/laggy refreshes."""
+    import time as _t
+    from concurrent.futures import ThreadPoolExecutor
+    items = list(centroids.items())
+    out = {}
+
+    def one(item):
+        wid, (lat, lon) = item
+        try:
+            return wid, ("ok", fetch_ward(lat, lon))
+        except Exception as e:  # noqa
+            return wid, ("err", f"{type(e).__name__}: {e}")
+
+    for i in range(0, len(items), per_minute_limit):
+        chunk = items[i:i + per_minute_limit]
+        t0 = _t.time()
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            for wid, res in ex.map(one, chunk):
+                out[wid] = res
+        elapsed = _t.time() - t0
+        remaining = len(items) - (i + len(chunk))
+        if remaining > 0 and elapsed < 60:
+            _t.sleep(60 - elapsed)
+    return out
