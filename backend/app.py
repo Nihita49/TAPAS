@@ -370,7 +370,7 @@ class Live:
         for city in CITY_IDS:
             g=unique_grid(city); self.grid[city]=g
             locs={k:(g[k][0]["centroid"][1],g[k][0]["centroid"][0]) for k in g}
-            r=fetch_many(locs,max_workers=14)
+            r=fetch_many_paced(locs,max_workers=5,per_minute_limit=55)
             # retry failures once
             fails=[k for k,res in r.items() if res[0]!="ok"]
             if fails: print(f"[weather] {city}: {len(fails)}/{len(locs)} failed — sample: {r[fails[0]][1]}", flush=True)
