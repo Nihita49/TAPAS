@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from pythermalcomfort.models import utci
 
 from datastore import STORE, CITY_IDS
-from weather import fetch_many, synth_weather
+from weather import fetch_many, fetch_many_paced, synth_weather
 from measures import admin_actions, user_sms
 from measures_i18n import personal_multilang, personal_oneline, emergency_multilang
 import pg_store
