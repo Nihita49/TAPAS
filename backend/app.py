@@ -1228,15 +1228,34 @@ def twilio_status():
 
 @app.post("/api/alerts/test")
 def alerts_test():
-    """Demoable/verifiable real-send trigger: one test SMS through the exact
-    production Twilio path used by alerts. Honest result either way."""
-    msg="[TAPAS TEST] Alert-channel verification message from TAPAS Heat EWS. | हिं: यह TAPAS अलर्ट-चैनल का परीक्षण संदेश है।"
-    res=_twilio_send(msg, os.environ.get("TWILIO_TO",""))
-    e={"ts":dt.datetime.now(dt.timezone.utc).isoformat(),"type":"test","ward":"-","band":"-","sim_active":False,
-       "message":msg,"channel":"sms_whatsapp","channel_result":res}
-    outbox.append(e)
-    with open(os.path.join(ROOT,"data","outbox.jsonl"),"a") as f: f.write(json.dumps(e)+"\n")
-    return {"sent":res.startswith("SENT"),"channel_result":res}
+    """Demoable/verifiable real-send trigger: builds a FULL sample alert using
+    the exact same message-construction path real event alerts use (trilingual
+    personal guidance + emergency block via log_alert/build_sms), so the real
+    alert *content* can be shown live even when Twilio itself isn't configured
+    (the send result is still honestly SIMULATED/SENT either way). Uses the
+    current worst-band ward if one is available so the numbers are real; falls
+    back to a representative sample ward (forced to "High" for the message)
+    if nothing is currently at High/Severe, so the demo content is never empty."""
+    atrisk=[]
+    try:
+        atrisk,_,_=compute_national(dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
+    except Exception:
+        pass
+    if atrisk:
+        s=max(atrisk,key=lambda x:_ORDER_BAND.get(x["current"]["band"],0))
+        city=s["ward"]["city"]; label=s["ward"]["label"]; band=s["current"]["band"]
+        htsi=s["current"]["htsi"]; utci=s["current"].get("utci")
+        adm=s.get("measures",{}).get("admin",[])
+    else:
+        city=CITY_IDS[0]; w=STORE.cities[city]["wards"][0]
+        label=ward_label(city,w); band="High"; htsi=0.12; utci=33.8
+        adm=admin_actions(band)
+    msgs={"High":"Heat escalation: High hazard. ","Severe":"Heat escalation: SEVERE hazard. "}
+    msg=f"[TAPAS TEST] {city} {label} - {msgs.get(band,msgs['High'])}HTSI {htsi}, UTCI {utci}C. Preventive actions recommended now."
+    if adm: msg+=" Action: "+adm[0]
+    e=log_alert("test",f"{city} {label}",band,msg,
+                extra={"ward_city":city,"note":"manually triggered sample — not an automatic detection"})
+    return {"sent":e["channel_result"].startswith("SENT"),"channel_result":e["channel_result"]}
 
 @app.get("/api/cadence")
 def cadence_api(): return {"cadence":cadence_table(),"non_goals":non_goals()}
