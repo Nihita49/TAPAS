@@ -191,9 +191,18 @@ async function openCity(id){st.city=id;st.view="city";
   $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
   $("#crumbCity").textContent=cityInfo(id).name;
   await loadWards();}
+// NEW:
+const _geomCache={};
 async function loadWards(){
+  if(!_geomCache[st.city]){
+    const g=await api(`/api/city/${st.city}/geometry`);
+    const m={}; (g.features||[]).forEach(f=>{m[f.id]=f.geometry;});
+    _geomCache[st.city]=m;
+  }
+  const gc=_geomCache[st.city];
   const d=await api(`/api/city/${st.city}/wards`);
-  st.geo=d.features;st.mapmeta=d.mapmeta;st.sim=d.sim;st.agg=d.aggregate||null;
+  st.geo=d.features.map(f=>({...f,geometry:gc[f.properties.id]||f.geometry}));
+  st.mapmeta=d.mapmeta;st.sim=d.sim;st.agg=d.aggregate||null;
   const {tx,ty,W,H}=st.mapmeta;
   $("#base").src=`/api/city/${st.city}/basemap`;
   $("#gis").style.aspectRatio=W+"/"+H;
