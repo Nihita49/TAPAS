@@ -472,7 +472,23 @@ def _risk_probs(a, surge, Hw, Ew, Vw, ACw):
     as HTSI; AC lowers risk with a negative coefficient."""
     m,h,_,_,_,_=_risk_terms(a,surge,Hw,Ew,Vw,ACw)
     return m,h
-
+  
+_SNAP_CACHE={}
+def cached_snapshot(city, ward, rec, now):
+    """Wraps compute_snapshot() with a small cache so repeated requests
+    don't re-run the per-ward forecast's pythermalcomfort UTCI loop from
+    scratch every time. Cache key changes whenever: the weather record
+    refreshes, the simulator offset changes, or a new 15-minute window
+    begins."""
+    bucket=now.replace(minute=(now.minute//15)*15, second=0, microsecond=0)
+    key=(city, ward["id"], rec.get("generationtime_utc"), SIM["offset"], bucket.isoformat())
+    hit=_SNAP_CACHE.get(key)
+    if hit is not None: return hit
+    snap=compute_snapshot(city, ward, rec, now)
+    _SNAP_CACHE.clear() if len(_SNAP_CACHE)>5000 else None
+    _SNAP_CACHE[key]=snap
+    return snap
+  
 def compute_snapshot(city, ward, rec, now):
     env=env_terms(ward.get("sat"), city)
     series=_series(rec)
@@ -894,7 +910,7 @@ def projection(city,wid):
     w=STORE.ward(city,wid)
     if not w: raise HTTPException(404,"ward not found")
     rec=LIVE.ward(city,w)
-    snap=compute_snapshot(city,w,rec,now) if rec else None
+    snap=cached_snapshot(city,w,rec,now) if rec else None
     if not snap or not snap.get("available"):
         return {"available":False,"reason":"Insufficient data","city":city,"ward_label":ward_label(city,w)}
     env=snap["environment"]["satellite"]; ac=snap["environment"].get("ac_ward",snap["environment"]["ac_city"])
@@ -1017,7 +1033,7 @@ def allocation(city):
     rows=[]
     for w in STORE.cities[city]["wards"]:
         rec=LIVE.ward(city,w)
-        s=compute_snapshot(city,w,rec,now) if rec else None
+        s=cached_snapshot(city,w,rec,now) if rec else None
         if not s or not s["available"]: continue
         htsi=s["current"]["htsi"]; mp=s["mortality"]["probability"]
         # simple priority score
@@ -1097,7 +1113,7 @@ def set_weights(req:WgtReq):
         except Exception: continue
         # plausibility guards: additive deltas in [-0.5,0.5], multipliers in [0,1]
         MEASURE_EFFECTS[k]["value"]=max(-0.5,min(0.5,val)) if MEASURE_EFFECTS[k]["op"]=="add" else max(0.0,min(1.0,val))
-    _V_CACHE.clear(); _MED_CACHE.clear()
+    _V_CACHE.clear(); _MED_CACHE.clear(); _SNAP_CACHE.clear()
     _save_weights_file()
     return get_weights()
 
@@ -1107,19 +1123,30 @@ def sim(req:SimReq):
     SIM["offset"]=float(req.offset); SIM["label"]=req.label or ""
     return {"sim":SIM,"note":"Labelled heatwave simulator (not live). Raises temperature across wards to preview escalation, measures and alerts."}
 
+@app.get("/api/city/{city}/geometry")
+def city_geometry(city, response: Response):
+    """Static ward boundary geometry only. Fetched once per city and
+    cached client-side; /wards now returns properties only."""
+    city=_norm(city)
+    pgg=pg_store.wards_geometry(city)
+    feats=[{"type":"Feature","id":w["id"],
+            "geometry":(pgg.get(str(w["id"])) if pgg else None) or w["geom"]}
+           for w in STORE.cities[city]["wards"]]
+    response.headers["Cache-Control"]="public, max-age=86400"
+    return {"city":city,"features":feats}
+
 @app.get("/api/city/{city}/wards")
 def city_wards(city):
     city=_norm(city); now=dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
-    pgg=pg_store.wards_geometry(city)   # live PostGIS read path (None -> JSON)
     feats=[]
     agg={"htsi":{"Low":0,"Moderate":0,"High":0,"Severe":0},
          "mortality":{"Low":0,"Moderate":0,"High":0,"Severe":0}}
-    outlook={}   # date -> {"mort":sum,"hosp":sum,"n":count}
-    highest=0  # 0 Low..3 Severe of the most-severe present (mortality)
+    outlook={}
+    highest=0
     order=["Low","Moderate","High","Severe"]
     for w in STORE.cities[city]["wards"]:
         rec=LIVE.ward(city,w)
-        snap=compute_snapshot(city,w,rec,now) if rec else None
+        snap=cached_snapshot(city,w,rec,now) if rec else None
         p={"id":w["id"],"label":ward_label(city,w),"zone":w.get("zone"),"area_km2":w.get("area_km2"),"sat":w.get("sat")}
         if snap and snap["available"]:
             c=snap["current"]; mb=snap["mortality"]["band"]; hb=snap["hospitalisation"]["band"]
@@ -1134,9 +1161,7 @@ def city_wards(city):
                       "tair":c["tair"],"mort":mb,"hosp":hb,
                       "veg":(snap["environment"]["satellite"] or {}).get("veg")})
         else: p.update({"available":False,"band":"Insufficient"})
-        feats.append({"type":"Feature","properties":p,
-                      "geometry":(pgg.get(str(w["id"])) if pgg else None) or w["geom"]})
-    # 5-day outlook rows (mean mortality & hospitalisation prob across wards)
+        feats.append({"type":"Feature","properties":p,"geometry":None})
     rows=[]
     for date in sorted(outlook):
         d=outlook[date]
@@ -1146,7 +1171,7 @@ def city_wards(city):
     city_measures=admin_actions(order[highest])
     if highest==0:
         city_measures=["Heat within seasonal normal. Routine heat-advisory monitoring continues; no escalated response triggered."]
-    return {"city":city,"features":feats,"sim":SIM,"geo_source":"postgis" if pgg else "json",
+    return {"city":city,"features":feats,"sim":SIM,"geo_source":"omitted (see /geometry)",
             "aggregate":{"distribution":agg,"outlook":rows,
                          "alert_level":order[highest],
                          "admin_measures":city_measures},
@@ -1155,7 +1180,7 @@ def city_wards(city):
                        "ty":STORE.cities[city]["map"]["tile_min"][1],
                        "W":STORE.cities[city]["map"]["nx"]*256,
                        "H":STORE.cities[city]["map"]["ny"]*256}}
-
+  
 @app.get("/api/city/{city}/basemap")
 def basemap(city):
     city=_norm(city); return FileResponse(os.path.join(ROOT,"data","cities",city,STORE.cities[city]["map"]["image"]))
@@ -1166,7 +1191,7 @@ def ward_detail(city,wid):
     w=STORE.ward(city,wid)
     if not w: raise HTTPException(404,"ward not found")
     rec=LIVE.ward(city,w)
-    snap=compute_snapshot(city,w,rec,now) if rec else None
+    snap=cached_snapshot(city,w,rec,now) if rec else None
     if snap and snap.get("ward") is not None:
         snap["ward"]["label"]=ward_label(city,snap["ward"])
     wout=dict(w); wout["label"]=ward_label(city,w)
@@ -1190,7 +1215,7 @@ def export_city_csv(city: str):
     wtr.writerow(cols)
     for w in STORE.cities[city]["wards"]:
         rec=LIVE.ward(city,w)
-        snap=compute_snapshot(city,w,rec,now) if rec else None
+        snap=cached_snapshot(city,w,rec,now) if rec else None
         row=[city,w["id"],ward_label(city,w)]
         if snap and snap.get("available"):
             c=snap["current"]; f=snap["factors"]; rt=f["risk_terms"]
