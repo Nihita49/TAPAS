@@ -75,7 +75,7 @@ def geo_area_km2(geom):
         x1,y1=pts[i]; x2,y2=pts[(i+1)%n]
         a+=(x1*kx)*(y2*ky)-(x2*kx)*(y1*ky)
     return abs(a)/2.0
-
+  
 def _utci(tair,rh,wind,sw,hour):
     sw=sw if sw is not None else 0.0
     solar=clamp(sw/700.0)
@@ -87,6 +87,29 @@ def _utci(tair,rh,wind,sw,hour):
     except Exception: return None
     return u if u==u else None
 
+def _utci_batch(tair,rh,wind,sw,hour):
+    """Vectorized UTCI over a whole ward's forecast window in ONE
+    pythermalcomfort call instead of one call per hour. forecast()
+    evaluates ~40 hours per ward, and with up to ~200 wards per city that
+    was thousands of individual UTCI evaluations on every fresh compute
+    (a new city open, or any time the simulator offset actually changes,
+    since cached_snapshot() can't help there). pythermalcomfort's utci()
+    accepts numpy arrays natively -- same formula as _utci() above,
+    computed elementwise for the whole batch at once."""
+    tair=np.asarray(tair,dtype=float); hour=np.asarray(hour,dtype=float)
+    rh=np.where(np.isnan(np.asarray(rh,dtype=float)),50.0,np.asarray(rh,dtype=float))
+    sw=np.where(np.isnan(np.asarray(sw,dtype=float)),0.0,np.asarray(sw,dtype=float))
+    wind=np.where(np.isnan(np.asarray(wind,dtype=float)),2.0,np.asarray(wind,dtype=float))
+    solar=np.clip(sw/700.0,0.0,1.0)
+    daytime=(hour>=6)&(hour<=18)
+    tr=tair+np.where(daytime,8.0*solar,2.0)
+    v=np.clip(wind,0.5,17.0)
+    try:
+        res=utci(tdb=tair,tr=tr,v=v,rh=rh)
+        u=np.asarray(res.utci,dtype=float) if hasattr(res,"utci") else np.asarray(res,dtype=float)
+    except Exception:
+        return np.full(tair.shape,np.nan)
+    return u
 _BAND_COLS={"Low":"#2f9e44","Moderate":"#f59f00","High":"#f76707","Severe":"#e03131"}
 def band(p):
     """HTSI band from the configurable cut-points BAND_T (see /api/weights)."""
@@ -566,11 +589,19 @@ def compute_snapshot(city, ward, rec, now):
 def forecast(city,ward,rec,now,env,ac):
     if not env: return []
     series=_series(rec); days={}; vfor=vulnerability(city)
-    for o in series:
-        t=o["t"]
-        if (t.replace(tzinfo=None)-now).total_seconds()< -3600 or (t.replace(tzinfo=None)-now).total_seconds()>120*3600: continue
-        u=_utci(o["tair"],o["rh"],o["wind"],o["sw"],t.hour)
-        if u is None: continue
+    # Filter to the forecast window first, and drop entries with no air
+    # temperature (matches the old per-item try/except skip), THEN batch
+    # the UTCI evaluation for everything that's left in one vectorized call.
+    win=[o for o in series
+         if o["tair"] is not None
+         and -3600<=(o["t"].replace(tzinfo=None)-now).total_seconds()<=120*3600]
+    if not win: return []
+    u_arr=_utci_batch([o["tair"] for o in win],[o["rh"] for o in win],
+                       [o["wind"] for o in win],[o["sw"] for o in win],
+                       [o["t"].hour for o in win])
+    for o,u in zip(win,u_arr):
+        if not (u==u): continue   # NaN -> same as the old "u is None: continue"
+        u=float(u); t=o["t"]
         base=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(t.month))
         surge=clamp((u-36.0)/10.0)
         anom_d=clamp((o["tair"]-base)/3.0) if base else 0.0
