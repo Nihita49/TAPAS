@@ -62,7 +62,3 @@ Heatwaves are a growing public health threat in India. Warnings are usually issu
   - **Ward geometry:** Real municipal ward boundaries (GeoJSON) for each pilot city
 - **Alerting:** Twilio (SMS/WhatsApp), with trilingual message generation (English, Hindi, and the state's regional language) and a dedicated heatstroke emergency-escalation message at High/Severe risk
 - **Hosting:** Render
-
-## Status
-
-Working prototype for demonstration and evaluation. The simulator uses hypothetical temperature increases and does not represent live conditions.
