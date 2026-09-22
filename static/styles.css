@@ -207,3 +207,55 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 .nw-note{font-size:11.5px;color:#6b7c94;margin-top:8px}
 .nw-sum{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:11.5px}
 .nw-sum b{font-size:15px;color:#10233f}
+
+/* ===== ward search (top-right of map panel) ===== */
+.searchWrap{position:relative;flex:0 0 auto}
+.searchBox{display:flex;align-items:center;gap:6px;background:#f6f8fb;border:1px solid var(--line);
+  border-radius:20px;padding:6px 12px;width:220px;transition:width .18s,border-color .18s}
+.searchBox:focus-within{width:270px;border-color:var(--accent);background:#fff}
+.searchBox svg{flex:none;opacity:.55}
+.searchBox input{border:none;background:transparent;outline:none;font:inherit;font-size:12.5px;width:100%;color:var(--ink)}
+.searchDrop{position:absolute;top:calc(100% + 6px);right:0;width:290px;max-height:320px;overflow:auto;
+  background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:20;padding:6px}
+.searchDrop.hidden{display:none}
+.sres{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer;font-size:12.5px}
+.sres:hover,.sres.sel{background:var(--accent-soft)}
+.sres .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.sres .lab{font-weight:600;color:var(--ink)}
+.sres .city{color:var(--muted);font-size:11px;margin-left:auto}
+.sres .fb{font-size:9.5px;color:#8a6200;background:#fff8e6;border:1px solid #ecd9a8;border-radius:8px;padding:1px 6px;margin-left:6px}
+.sres-empty{padding:10px;color:var(--muted);font-size:12px;text-align:center}
+
+/* ===== filter navbar (city level: Low/Moderate/High/Severe) ===== */
+.filterbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--line);background:#fbfdff}
+.filterbar.hidden{display:none}
+.fchip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;
+  border-radius:16px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--muted);
+  cursor:pointer;transition:.12s;user-select:none}
+.fchip .dot{width:8px;height:8px;border-radius:50%}
+.fchip.on{color:#fff;border-color:transparent}
+.fchip .cnt{opacity:.85;font-weight:700}
+.fchip:not(.on):hover{border-color:#cfe0ff}
+
+/* ---- ward dim (filter) + pulse-on-locate (search) ---- */
+#overlay path.ward.dim{opacity:.16;transition:opacity .25s}
+#overlay path.ward{transition:opacity .25s}
+#overlay path.ward.selected{stroke:#0a1e40;stroke-width:2.6}
+@keyframes wardPulse{
+  0%{stroke-width:.8;stroke:#fff}
+  30%{stroke-width:5;stroke:#1467f0}
+  60%{stroke-width:2;stroke:#1467f0}
+  100%{stroke-width:.8;stroke:#fff}
+}
+#overlay path.ward.pulse{animation:wardPulse .55s ease-out 2;stroke:#1467f0}
+
+/* ---- map-panel zoom transition (India<->City hop; ward hop uses real viewBox tween) ---- */
+.gis{transition:opacity .18s ease-out,transform .18s ease-out}
+.gis.zoom-out{opacity:0;transform:scale(1.06)}
+.gis.zoom-in-start{opacity:0;transform:scale(.92)}
+
+/* ---- side panel "drawer" slide when a ward is opened ---- */
+.side{transition:opacity .16s ease-out}
+#sidepanel{transition:transform .22s cubic-bezier(.2,.7,.3,1),opacity .18s}
+#sidepanel.drawer-in{transform:translateX(0);opacity:1}
+#sidepanel.drawer-enter{transform:translateX(24px);opacity:0}
