@@ -35,7 +35,7 @@
 </div>
 
 <main class="wrap">
-  <section id="mapPanel" class="panel mappanel">
+    <section id="mapPanel" class="panel mappanel">
     <div class="map-top">
       <div class="crumbs"><span id="crumbRoot" class="crumb cur">India</span><span id="sepCrumb" class="sep hidden">›</span><button id="crumbCity" class="crumb hidden">—</button></div>
       <div id="layers" class="seg hidden">
@@ -45,7 +45,15 @@
         <button data-l="utci">UTCI</button>
         <button data-l="veg">Vegetation</button>
       </div>
+      <div class="searchWrap">
+        <div class="searchBox">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
+          <input id="wardSearch" type="text" placeholder="Search any ward across India…" autocomplete="off"/>
+        </div>
+        <div id="searchDrop" class="searchDrop hidden"></div>
+      </div>
     </div>
+    <div id="filterbar" class="filterbar hidden"></div>
     <div id="gis" class="gis">
       <img id="base" class="hidden" alt="satellite basemap"/>
       <div id="indiaWrap" class="india-wrap"></div>
@@ -55,7 +63,6 @@
     <div id="legend" class="legend"></div>
     <div id="srcnote" class="srcnote"></div>
   </section>
-
   <aside id="side" class="panel side">
     <div id="sidepanel"></div>
   </aside>
