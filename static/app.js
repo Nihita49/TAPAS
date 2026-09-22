@@ -8,8 +8,52 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const BCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 const LAYERLAB={"htsi":"Hazard risk (HTSI)","mort":"Mortality risk","hosp":"Hospitalization Spike","utci":"UTCI hazard (°C)","veg":"Satellite vegetation (%)"};
-const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null};
+const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
+  wardEls:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
+  cityFullViewBox:null,_selectedWardId:null};
 async function api(p,opts){const r=await fetch(p,Object.assign({headers:{"Content-Type":"application/json"}},opts));if(!r.ok)throw new Error((await r.text()).slice(0,140));return r.json();}
+const sleep=ms=>new Promise(res=>setTimeout(res,ms));
+
+/* ---- persistent-canvas zoom transition (India<->City hop): crossfade+scale
+   the whole #gis container across the content swap, since the two views use
+   different projections and can't be tweened as one continuous coordinate
+   space. City<->Ward hops instead use a real viewBox tween (tweenViewBox
+   below), since ward paths live in the SAME coordinate space as the city's
+   viewBox, so that zoom can be a genuine, mathematically correct pan/scale. */
+async function zoomTransition(mutate){
+  const gis=$("#gis");
+  gis.classList.add("zoom-out");
+  await sleep(170);
+  await mutate();
+  gis.classList.add("zoom-in-start");
+  gis.classList.remove("zoom-out");
+  void gis.offsetWidth;              // force reflow so the browser commits the start state
+  gis.classList.remove("zoom-in-start");
+}
+function parseVB(s){return (s||"0 0 100 100").split(/\s+/).map(Number);}
+function tweenViewBox(svg,to,dur){
+  const from=parseVB(svg.getAttribute("viewBox"));
+  const token=(svg._vbToken=(svg._vbToken||0)+1);   // cancels any in-flight tween on this svg
+  const t0=performance.now();
+  function step(now){
+    if(svg._vbToken!==token)return;
+    const p=Math.min(1,(now-t0)/dur);
+    const e=1-Math.pow(1-p,3);       // ease-out cubic
+    svg.setAttribute("viewBox",from.map((v,i)=>v+(to[i]-v)*e).join(" "));
+    if(p<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function wardTargetBox(id){
+  const els=st.wardEls[id]; if(!els||!els.length)return null;
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  try{
+    els.forEach(el=>{const b=el.getBBox();x1=Math.min(x1,b.x);y1=Math.min(y1,b.y);x2=Math.max(x2,b.x+b.width);y2=Math.max(y2,b.y+b.height);});
+  }catch(e){return null;}   // getBBox needs a rendered/laid-out element; fail safe by skipping the zoom rather than throwing
+  if(!isFinite(x1))return null;
+  const w=Math.max(1,x2-x1),h=Math.max(1,y2-y1),pad=Math.max(w,h)*0.45+8;
+  return [x1-pad,y1-pad,w+pad*2,h+pad*2];
+}
 
 /* mercator (matches backend) */
 function mX(lon,z){return (lon+180)/360*Math.pow(2,z)*256;}
@@ -27,10 +71,12 @@ async function boot(){
     $("#mclose").onclick=()=>$("#modal").classList.add("hidden");
     $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")$("#modal").classList.add("hidden");});
     document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").classList.contains("hidden"))$("#modal").classList.add("hidden");});
-    $("#crumbRoot").onclick=()=>renderIndia();
+    $("#crumbRoot").onclick=()=>goIndia();
     $("#simApply").onclick=applySim; $("#simReset").onclick=()=>{$("#simRange").value=0;$("#simVal").textContent="+0 °C";applySim();};
     $("#simRange").oninput=()=>$("#simVal").textContent="+"+$("#simRange").value+" °C";
     document.querySelectorAll("#layers button").forEach(b=>b.onclick=()=>setLayer(b.dataset.l));
+    wireSearch();
+    buildSearchIndex();   // background; doesn't block first paint
     renderIndia();
   }catch(e){$("#sidepanel").innerHTML="<div class='placeholder'>Load error: "+esc(e.message)+"</div>";}
 }
@@ -46,6 +92,53 @@ function paintStatus(b){
   $("#sbText").innerHTML=`National heat-watch &middot; <b>${live}/${cs.length}</b> cities on live weather${extra}. Mortality, Hospitalization Spike &amp; V are <b>early-warning signals on defensible-default (not clinically validated)</b> coefficients.`;
 }
 function cityInfo(id){return st.cities.find(c=>c.id===id);}
+async function goIndia(){await zoomTransition(async()=>{renderIndia();});}
+
+/* ---- ward search: cross-city index built once in the background; the
+   dropdown scopes to the current city once one is open. Selecting a
+   result reuses the same zoom + drawer + pulse path a direct map click
+   would take, so the two ways of reaching a ward feel identical. ---- */
+async function buildSearchIndex(){
+  for(const c of st.cities){
+    try{
+      const d=await api(`/api/city/${c.id}/wards`);
+      d.features.forEach(f=>{const p=f.properties;
+        st.searchIndex.push({city:c.id,cityName:c.name,id:p.id,label:p.label,band:p.band,available:p.available});});
+    }catch(e){/* one city failing to index shouldn't block the others */}
+  }
+}
+function updateSearchPlaceholder(){
+  const inp=$("#wardSearch"); if(!inp)return;
+  inp.placeholder=st.view==="city"?`Search a ward in ${cityInfo(st.city).name}…`:"Search any ward across India…";
+}
+function searchMatches(q){
+  q=q.trim().toLowerCase(); if(!q)return [];
+  const scoped=st.view==="city"?st.searchIndex.filter(w=>w.city===st.city):st.searchIndex;
+  return scoped.filter(w=>w.available!==false&&(w.label||"").toLowerCase().includes(q)).slice(0,8);
+}
+let _searchMatches=[];
+function renderSearchDrop(matches){
+  _searchMatches=matches; const el=$("#searchDrop");
+  if(!matches.length){el.innerHTML=`<div class="sres-empty">No matching wards</div>`;el.classList.remove("hidden");return;}
+  el.innerHTML=matches.map((m,i)=>{
+    const ci=cityInfo(m.city); const fb=(ci&&ci.weather_prov&&ci.weather_prov!=="live")?`<span class="fb">fallback data</span>`:"";
+    return `<div class="sres" data-i="${i}"><span class="dot" style="background:${_WCOL[m.band]||"#c7d0db"}"></span><span class="lab">${esc(m.label)}</span>${st.view!=="city"?`<span class="city">${esc(m.cityName)}</span>`:""}${fb}</div>`;
+  }).join("");
+  el.classList.remove("hidden");
+  el.querySelectorAll(".sres").forEach((row,i)=>row.onclick=()=>selectSearchResult(matches[i]));
+}
+async function selectSearchResult(m){
+  $("#searchDrop").classList.add("hidden"); $("#wardSearch").value="";
+  if(st.view!=="city"||st.city!==m.city)await openCity(m.city);
+  await openWard(m.id);
+}
+function wireSearch(){
+  const inp=$("#wardSearch");
+  const run=()=>{const q=inp.value;if(q.trim())renderSearchDrop(searchMatches(q));else $("#searchDrop").classList.add("hidden");};
+  inp.addEventListener("input",run); inp.addEventListener("focus",run);
+  document.addEventListener("click",e=>{if(!e.target.closest(".searchWrap"))$("#searchDrop").classList.add("hidden");});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#searchDrop").classList.add("hidden");});
+}
 
 /* ================= INDIA (landing) = proper national GIS ================= */
 function renderIndia(){
@@ -54,8 +147,10 @@ function renderIndia(){
   $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden"); $("#hov").classList.remove("hidden");
   $("#indiaWrap").classList.add("hidden");
   $("#layers").classList.add("hidden"); $("#simbar").classList.add("hidden");
+  $("#filterbar").classList.add("hidden"); $("#filterbar").innerHTML="";
   $("#crumbRoot").classList.add("cur"); $("#crumbRoot").textContent="India";
   $("#sepCrumb").classList.add("hidden"); $("#crumbCity").classList.add("hidden");
+  updateSearchPlaceholder();
   renderNationalMap();
   $("#legend").innerHTML=`<span style="font-size:11px;font-weight:700">National coverage</span>
     <span class="cell"><span class="sw" style="background:#1467f0"></span>Live pilot city — click to open</span>
@@ -182,17 +277,24 @@ async function cityTrendCard(city){
 }
 
 /* ================= CITY ================= */
-async function openCity(id){st.city=id;st.view="city";
-  const gis=$("#gis"); gis.classList.remove("india");
-  $("#indiaWrap").classList.add("hidden");
-  $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden");
-  $("#layers").classList.remove("hidden"); $("#simbar").classList.remove("hidden");
-  $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
-  $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
-  $("#crumbCity").textContent=cityInfo(id).name;
-  await loadWards();}
+async function openCity(id){
+  await zoomTransition(async()=>{
+    st.city=id;st.view="city";
+    st.filterBands=new Set(["Low","Moderate","High","Severe"]);   // fresh filter state per city
+    st._selectedWardId=null;
+    const gis=$("#gis"); gis.classList.remove("india");
+    $("#indiaWrap").classList.add("hidden");
+    $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden");
+    $("#layers").classList.remove("hidden"); $("#simbar").classList.remove("hidden");
+    $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
+    $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
+    $("#crumbCity").textContent=cityInfo(id).name;
+    updateSearchPlaceholder();
+    await loadWards();
+  });
+}
 // NEW:
-const _geomCache={};
+const _geomCache={}; // city -> {id: geometry}, fetched once per city (static, never changes)
 async function loadWards(){
   if(!_geomCache[st.city]){
     const g=await api(`/api/city/${st.city}/geometry`);
@@ -207,20 +309,52 @@ async function loadWards(){
   $("#base").src=`/api/city/${st.city}/basemap`;
   $("#gis").style.aspectRatio=W+"/"+H;
   const svg=$("#overlay");svg.innerHTML="";svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("preserveAspectRatio","none");
+  st.cityFullViewBox=`0 0 ${W} ${H}`;
+  st.wardEls={};
   const g=document.createElementNS("http://www.w3.org/2000/svg","g");
   st.geo.forEach(f=>{const p=f.properties;polyPaths(f.geometry,st.mapmeta.zoom,st.mapmeta.tx,st.mapmeta.ty).forEach(pth=>{
     const el=document.createElementNS("http://www.w3.org/2000/svg","path");el.setAttribute("d",pth);el.setAttribute("class","ward");
     colorPath(el,p);
     el.addEventListener("click",()=>openWard(p.id));
     el.addEventListener("mouseenter",()=>{$("#hov").innerHTML=hovText(p);});
-    g.appendChild(el);});});
+    g.appendChild(el);
+    (st.wardEls[p.id]=st.wardEls[p.id]||[]).push(el);});});
   svg.appendChild(g);
   setLayer(st.layer,true);
+  renderFilterBar(); applyFilterDim();
   renderSideCity();
   allocationCard(cityInfo(st.city).id);
   cityTrendCard(cityInfo(st.city).id);
   $("#hov").textContent=cityInfo(st.city).name+" · municipal wards · switch view above (HTSI / Mortality / Hospitalization Spike / UTCI / Vegetation) · click a ward";
   renderSrcNote();
+}
+/* ---- city-level severity filter (Low/Moderate/High/Severe pills). Dims
+   (not hides) non-matching wards so spatial context is preserved. Counts
+   are recomputed from the live `st.geo` on every render/refresh. ---- */
+function renderFilterBar(){
+  const fb=$("#filterbar");
+  if(st.view!=="city"){fb.classList.add("hidden");fb.innerHTML="";return;}
+  const bands=["Low","Moderate","High","Severe"];
+  const counts={Low:0,Moderate:0,High:0,Severe:0};
+  (st.geo||[]).forEach(f=>{const b=f.properties.band;if(counts[b]!=null)counts[b]++;});
+  fb.innerHTML=bands.map(b=>{
+    const on=st.filterBands.has(b);
+    return `<div class="fchip${on?" on":""}" data-b="${b}" style="${on?`background:${_WCOL[b]};border-color:${_WCOL[b]}`:""}">
+      <span class="dot" style="background:${on?"#fff":_WCOL[b]}"></span>${b} <span class="cnt">${counts[b]}</span></div>`;
+  }).join("");
+  fb.classList.remove("hidden");
+  fb.querySelectorAll(".fchip").forEach(ch=>ch.onclick=()=>{
+    const b=ch.dataset.b;
+    if(st.filterBands.has(b))st.filterBands.delete(b); else st.filterBands.add(b);
+    renderFilterBar(); applyFilterDim();
+  });
+}
+function applyFilterDim(){
+  (st.geo||[]).forEach(f=>{
+    const p=f.properties,els=st.wardEls[p.id]||[];
+    const dim=p.available&&!st.filterBands.has(p.band);
+    els.forEach(el=>el.classList.toggle("dim",dim));
+  });
 }
 async function allocationCard(city){
   try{
@@ -248,7 +382,7 @@ function renderSideCity(){const c=cityInfo(st.city);
     <p style="font-size:12px">Use the view buttons above the map to colour wards by <b>HTSI</b>, <b>Mortality Risk</b>, Hospitalization Spike, UTCI heat-stress, or satellite vegetation. Click a ward for its full profile &amp; the two risk outputs (separate logistics on the shared weighted factors).</p></div>
     ${cityForecastCards(st.agg,c)}
     <div class="ov-grid"><button class="btn ghost" id="openCityWardHint" style="width:100%">Back to India</button></div>`;
-  $("#sidepanel").querySelector("#openCityWardHint").onclick=()=>renderIndia();
+    $("#sidepanel").querySelector("#openCityWardHint").onclick=()=>goIndia();
 }
 function cityForecastCards(agg,c){
   if(!agg||!agg.distribution)return "";
@@ -317,14 +451,37 @@ function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px s
 function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Basemap & thermal analysis: Esri World Imagery (real satellite, per-ward). Boundaries: ${c.boundary_source||"municipal wards"}. Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
 
 /* ================= WARD ================= */
-async function openWard(id){$("#hov").textContent="Loading ward…";
+function selectWard(id){
+  if(st._selectedWardId&&st.wardEls[st._selectedWardId])
+    st.wardEls[st._selectedWardId].forEach(el=>el.classList.remove("selected"));
+  st._selectedWardId=id;
+  const els=st.wardEls[id]||[];
+  els.forEach(el=>el.classList.add("selected","pulse"));
+  setTimeout(()=>els.forEach(el=>el.classList.remove("pulse")),1150);
+}
+function backToCityMap(){
+  if(st._selectedWardId&&st.wardEls[st._selectedWardId])
+    st.wardEls[st._selectedWardId].forEach(el=>el.classList.remove("selected"));
+  st._selectedWardId=null;
+  if(st.cityFullViewBox)tweenViewBox($("#overlay"),parseVB(st.cityFullViewBox),420);
+  renderSideCity();
+}
+async function openWard(id){
+  $("#hov").textContent="Loading ward…";
+  const box=wardTargetBox(id);
+  if(box)tweenViewBox($("#overlay"),box,480);   // real pan+zoom: same coord space as the city view
+  selectWard(id);
   const d=await api(`/api/city/${st.city}/ward/${id}`);st.current=d;
-  $("#sidepanel").innerHTML=wardHTML(d);
+  const sp=$("#sidepanel");
+  sp.classList.remove("drawer-in"); sp.classList.add("drawer-enter");
+  sp.innerHTML=wardHTML(d);
+  void sp.offsetWidth;                          // force reflow so the enter->in transition actually plays
+  sp.classList.remove("drawer-enter"); sp.classList.add("drawer-in");
   // preventive-impact projection (scenario)
   try{const pr=await api(`/api/city/${st.city}/ward/${id}/projection`);
     if(pr&&pr.available)projectionCard(pr);}catch(e){}
   preventiveSimCard();
-  const bb=$("#backIndia"); if(bb)bb.onclick=()=>renderSideCity();}
+  const bb=$("#backIndia"); if(bb)bb.onclick=()=>backToCityMap();}
 const PS_LABELS={cooling_centres:"Cooling centres",water_audits:"Water audits",outdoor_work_reschedule:"Outdoor-work rescheduling",welfare_checks:"Welfare checks",grid_energy_notice:"Grid / energy notice"};
 async function preventiveSimCard(){
   const d=st.current; if(!d||!d.ward||!$("#sidepanel"))return;
