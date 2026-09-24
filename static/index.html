@@ -12,7 +12,7 @@
     <div class="mark" aria-hidden="true">T</div>
     <div>
       <div class="name">TAPAS</div>
-       <div class="subtag">Thermal Assessment &amp; Protection Analytics System</div>
+      <div class="tag">Thermal Assessment &amp; Protection Analytics System</div>
     </div>
   </div>
   <div class="top-actions">
@@ -26,53 +26,30 @@
   <span id="sbText">Initialising live national heat-watch…</span>
 </div>
 
-<div id="simbar" class="simbar hidden">
-  <span class="sim-flag">Simulator (not live)</span>
-  <label>Heatwave preview&nbsp;<input id="simRange" type="range" min="0" max="6" step="1" value="0"/><b id="simVal">+0 °C</b></label>
-  <button id="simApply" class="btn sm">Preview</button>
-  <button id="simReset" class="btn ghost sm">Live (reset)</button>
-  <span class="sim-note">Raises ward temperature only to preview escalation, measures &amp; alerts. Default off; never shown as live.</span>
+<div id="simbar" class="simbar">
+  <span id="simBadge" class="sim-badge live">LIVE</span>
+  <button id="simToggle" class="btn ghost sm">Preview a heatwave…</button>
+  <div id="simPop" class="sim-pop hidden">
+    <label>Raise ward temperature&nbsp;<input id="simRange" type="range" min="0" max="10" step="1" value="0"/><b id="simVal">+0 °C</b></label>
+    <button id="simApply" class="btn sm">Apply preview</button>
+    <span class="sim-note">Preview only — never shown as live data.</span>
+  </div>
+  <button id="simReset" class="btn ghost sm hidden">Reset</button>
 </div>
 
 <main class="wrap">
-    <section id="mapPanel" class="panel mappanel">
-        <div class="map-top">
-      <div class="crumbs"><span id="crumbRoot" class="crumb cur">India</span><span id="sepCrumb" class="sep hidden">›</span><button id="crumbCity" class="crumb hidden">—</button></div>
-      <div class="map-top-actions">
-        <div id="filtersWrap" class="filtersWrap hidden">
-          <button id="filtersBtn" class="tbtn" aria-expanded="false">Filters
-            <svg class="chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div id="filtersPop" class="filtersPop hidden">
-            <div class="fp-block">
-              <div class="fp-label">Layer</div>
-              <div id="layers" class="seg">
-                <button data-l="htsi" class="on">Risk</button>
-                <button data-l="mort">Mortality</button>
-                <button data-l="hosp">Hosp. Spike</button>
-                <button data-l="utci">UTCI</button>
-                <button data-l="veg">Vegetation</button>
-              </div>
-            </div>
-            <div class="fp-block">
-              <div class="fp-label">Severity</div>
-              <div id="filterbar" class="filterbar"></div>
-            </div>
-          </div>
-        </div>
-        <button id="resetBtn" class="tbtn" title="Reset to default India view">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
-          Reset
-        </button>
-        <div class="searchWrap">
-          <div class="searchBox">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
-            <input id="wardSearch" type="text" placeholder="Search any ward across India…" autocomplete="off"/>
-          </div>
-          <div id="searchDrop" class="searchDrop hidden"></div>
-        </div>
+  <section id="mapPanel" class="panel mappanel full">
+    <div class="map-top">
+      <div class="crumbs"><span id="crumbRoot" class="crumb cur">India</span><span id="sepCrumb" class="sep hidden">›</span><button id="crumbCity" class="crumb hidden">—</button><span id="sepCrumb2" class="sep hidden">›</span><span id="crumbWard" class="crumb cur hidden">—</span></div>
+      <div id="layers" class="seg hidden">
+        <button data-l="htsi" class="on">Risk</button>
+        <button data-l="mort">Mortality</button>
+        <button data-l="hosp">Hospitalization Spike</button>
+        <button data-l="utci">UTCI</button>
+        <button data-l="veg">Vegetation</button>
       </div>
-    </div>
+      <button id="ovBtn" class="btn ghost sm hidden">Overview</button>
+      <button id="filterToggle" class="btn ghost sm hidden">Filters ▾</button>
       <div class="searchWrap">
         <div class="searchBox">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
@@ -87,11 +64,18 @@
       <div id="indiaWrap" class="india-wrap"></div>
       <svg id="overlay" class="hidden"></svg>
       <div id="hov" class="hov"></div>
+      <div class="mapctl">
+        <button id="zIn" title="Zoom in">+</button>
+        <button id="zOut" title="Zoom out">−</button>
+        <button id="zHome" title="Back to India">⌂</button>
+      </div>
     </div>
     <div id="legend" class="legend"></div>
     <div id="srcnote" class="srcnote"></div>
   </section>
-  <aside id="side" class="panel side">
+
+  <aside id="side" class="panel side floating hidden">
+    <button id="sideClose" class="side-x" title="Close">×</button>
     <div id="sidepanel"></div>
   </aside>
 </main>
