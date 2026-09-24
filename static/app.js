@@ -72,13 +72,18 @@ async function boot(){
     $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")$("#modal").classList.add("hidden");});
     document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").classList.contains("hidden"))$("#modal").classList.add("hidden");});
     $("#crumbRoot").onclick=()=>goIndia();
-    $("#simApply").onclick=applySim; $("#simReset").onclick=()=>{$("#simRange").value=0;$("#simVal").textContent="+0 °C";applySim();};
+    $("#crumbCity").onclick=()=>{if(st._selectedWardId)backToCityMap();};
+    $("#simToggle").onclick=()=>$("#simPop").classList.toggle("hidden");
+    $("#simApply").onclick=async()=>{await applySim();$("#simPop").classList.add("hidden");};
+    $("#simReset").onclick=async()=>{$("#simRange").value=0;$("#simVal").textContent="+0 °C";await applySim();await goIndia();};
     $("#simRange").oninput=()=>$("#simVal").textContent="+"+$("#simRange").value+" °C";
+    document.addEventListener("click",e=>{if(!e.target.closest("#simbar"))$("#simPop").classList.add("hidden");});
     document.querySelectorAll("#layers button").forEach(b=>b.onclick=()=>setLayer(b.dataset.l));
-    $("#filtersBtn").onclick=(e)=>{e.stopPropagation();toggleFilters();};
-    document.addEventListener("click",e=>{if(!$("#filtersWrap").contains(e.target))closeFilters();});
-    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeFilters();});
-    $("#resetBtn").onclick=resetApp;
+    $("#ovBtn").onclick=()=>toggleOverview();
+    $("#filterToggle").onclick=()=>{$("#filterbar").classList.toggle("hidden");};
+    $("#sideClose").onclick=()=>closeSide();
+    $("#zIn").onclick=()=>zoomBy(0.72); $("#zOut").onclick=()=>zoomBy(1.4);
+    $("#zHome").onclick=()=>goIndia();
     wireSearch();
     buildSearchIndex();   // background; doesn't block first paint
     renderIndia();
@@ -97,27 +102,6 @@ function paintStatus(b){
 }
 function cityInfo(id){return st.cities.find(c=>c.id===id);}
 async function goIndia(){await zoomTransition(async()=>{renderIndia();});}
-
-function toggleFilters(){
-  const open=$("#filtersPop").classList.contains("hidden");
-  $("#filtersPop").classList.toggle("hidden",!open);
-  $("#filtersBtn").setAttribute("aria-expanded",String(open));
-}
-function closeFilters(){
-  $("#filtersPop").classList.add("hidden");
-  $("#filtersBtn").setAttribute("aria-expanded","false");
-}
-function resetApp(){
-  closeFilters();
-  st.filterBands=new Set(["Low","Moderate","High","Severe"]);
-  st.layer="htsi";
-  document.querySelectorAll("#layers button").forEach(b=>b.classList.toggle("on",b.dataset.l==="htsi"));
-  if($("#wardSearch"))$("#wardSearch").value="";
-  if($("#searchDrop"))$("#searchDrop").classList.add("hidden");
-  if($("#simRange")){$("#simRange").value=0;$("#simVal").textContent="+0 °C";}
-  goIndia();
-}
-
 
 /* ---- ward search: cross-city index built once in the background; the
    dropdown scopes to the current city once one is open. Selecting a
@@ -171,9 +155,14 @@ function renderIndia(){
   $("#gis").classList.remove("india");
   $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden"); $("#hov").classList.remove("hidden");
   $("#indiaWrap").classList.add("hidden");
-  $("#filtersWrap").classList.remove("hidden"); $("#simbar").classList.remove("hidden");
+  $("#layers").classList.add("hidden");
+  $("#filterbar").classList.add("hidden"); $("#filterbar").innerHTML="";
+  $("#filterToggle").classList.add("hidden"); $("#simToggle").classList.add("hidden");
+  $("#ovBtn").classList.remove("hidden"); $("#ovBtn").textContent="Overview";
+  $("#side").classList.add("hidden"); st._selectedWardId=null;
   $("#crumbRoot").classList.add("cur"); $("#crumbRoot").textContent="India";
   $("#sepCrumb").classList.add("hidden"); $("#crumbCity").classList.add("hidden");
+  $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
   updateSearchPlaceholder();
   renderNationalMap();
   $("#legend").innerHTML=`<span style="font-size:11px;font-weight:700">National coverage</span>
@@ -224,23 +213,10 @@ function renderNationalMap(){
 const _WBAND=["Low","Moderate","High","Severe"];
 const _WCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 async function renderSideIndia(){
-  $("#sidepanel").innerHTML=`<div class="ov-head compact"><h2>Pick a pilot city to begin</h2>
-    <p>Click a marker on the map — or a city card below — to open its live ward-level risk map.</p></div>
-    <div id="nwBox"><div class="placeholder">Loading live national heat-watch&hellip;</div></div>
-    <button id="toggleAbout" class="linkbtn">What does TAPAS measure? ▾</button>
-    <div id="aboutBox" class="cav hidden" style="margin:0 18px 14px">
-      <b>TAPAS</b> is a weighted multi-factor model combining heat hazard, vulnerability, exposure and adaptive
-      capacity. <b>Mortality Risk</b> and <b>Hospitalization Spike</b> are computed from the same underlying
-      factors via a separate model.<br><br>
-      <b>Calibration caveat:</b> V index magnitude, mortality coefficients and any projection/allocation are
-      <b>defensible defaults, not validated</b> &mdash; India publishes no ward-level outcome data. They are
-      early-warning signals.
-    </div>`;
-  $("#toggleAbout").onclick=()=>{
-    const box=$("#aboutBox"),open=box.classList.contains("hidden");
-    box.classList.toggle("hidden",!open);
-    $("#toggleAbout").textContent="What does TAPAS measure? "+(open?"▲":"▾");
-  };
+  $("#sidepanel").innerHTML=`<div class="ov-head"><h2>Thermal Assessment &amp; Protection Analytics (TAPAS)</h2>
+    <p><b>A weighted multi-factor model</b> combining heat hazard, vulnerability, exposure and adaptive capacity. <b>Mortality Risk</b> and <b>Hospitalization Spike</b> are computed from the same underlying factors via a separate model. Select a pilot city.</p></div>
+    <div class="cav" style="margin:6px 0"><b>Calibration caveat:</b> V index magnitude, mortality coefficients and any projection/allocation are <b>defensible defaults, not validated</b> &mdash; India publishes no ward-level outcome data. They are early-warning signals.</div>
+    <div id="nwBox"><div class="placeholder">Loading live national heat-watch&hellip;</div></div>`;
   loadWatch(0);
 }
 async function loadWatch(attempt){
@@ -322,15 +298,18 @@ async function openCity(id){
     const gis=$("#gis"); gis.classList.remove("india");
     $("#indiaWrap").classList.add("hidden");
     $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden");
-    $("#layers").classList.remove("hidden"); $("#simbar").classList.remove("hidden");
+    $("#layers").classList.remove("hidden");
+    $("#filterToggle").classList.remove("hidden"); $("#simToggle").classList.remove("hidden");
+    $("#ovBtn").textContent="City overview";
+    $("#side").classList.add("hidden");
     $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
     $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
     $("#crumbCity").textContent=cityInfo(id).name;
+    $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
     updateSearchPlaceholder();
     await loadWards();
   });
 }
-// NEW:
 const _geomCache={}; // city -> {id: geometry}, fetched once per city (static, never changes)
 async function loadWards(){
   if(!_geomCache[st.city]){
@@ -379,7 +358,6 @@ function renderFilterBar(){
     return `<div class="fchip${on?" on":""}" data-b="${b}" style="${on?`background:${_WCOL[b]};border-color:${_WCOL[b]}`:""}">
       <span class="dot" style="background:${on?"#fff":_WCOL[b]}"></span>${b} <span class="cnt">${counts[b]}</span></div>`;
   }).join("");
-  fb.classList.remove("hidden");
   fb.querySelectorAll(".fchip").forEach(ch=>ch.onclick=()=>{
     const b=ch.dataset.b;
     if(st.filterBands.has(b))st.filterBands.delete(b); else st.filterBands.add(b);
@@ -398,8 +376,7 @@ async function allocationCard(city){
     const a=await api(`/api/city/${city}/allocation`);
     const rows=(a.rows||[]).filter(r=>r.priority_score>0).slice(0,6);
     const bcol=r=>r.mort_band==="Severe"?"#dd3a3a":r.mort_band==="High"?"#f0722c":r.mort_band==="Moderate"?"#e8a51d":"#2e9e5b";
-    const h=document.createElement("div");h.id="allocCard";
-    h.innerHTML=`<div class="card"><h4>Resource allocation <span class="hint">top at-risk wards</span></h4>
+    const h=document.createElement("    h.innerHTML=`<div class="card"><h4>Resource allocation <span class="hint">top at-risk wards</span></h4>
       <table class="t"><thead><tr><th>Ward</th><th>Mort</th><th>Score</th><th>Share</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${esc(r.ward)}</td><td><span class="badge bg${r.mort_band}" style="font-size:10px">${r.mort_band}</span></td>
         <td>${r.priority_score}</td><td>${r.share_pct}%</td></tr>`).join("")||`<tr><td colspan="4">No wards currently elevated (all Low risk).</td></tr>`}
@@ -419,7 +396,7 @@ function renderSideCity(){const c=cityInfo(st.city);
     <p style="font-size:12px">Use the view buttons above the map to colour wards by <b>HTSI</b>, <b>Mortality Risk</b>, Hospitalization Spike, UTCI heat-stress, or satellite vegetation. Click a ward for its full profile &amp; the two risk outputs (separate logistics on the shared weighted factors).</p></div>
     ${cityForecastCards(st.agg,c)}
     <div class="ov-grid"><button class="btn ghost" id="openCityWardHint" style="width:100%">Back to India</button></div>`;
-    $("#sidepanel").querySelector("#openCityWardHint").onclick=()=>goIndia();
+  $("#sidepanel").querySelector("#openCityWardHint").onclick=()=>goIndia();
 }
 function cityForecastCards(agg,c){
   if(!agg||!agg.distribution)return "";
@@ -501,7 +478,8 @@ function backToCityMap(){
     st.wardEls[st._selectedWardId].forEach(el=>el.classList.remove("selected"));
   st._selectedWardId=null;
   if(st.cityFullViewBox)tweenViewBox($("#overlay"),parseVB(st.cityFullViewBox),420);
-  renderSideCity();
+  $("#side").classList.add("hidden");
+  $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
 }
 async function openWard(id){
   $("#hov").textContent="Loading ward…";
@@ -509,16 +487,19 @@ async function openWard(id){
   if(box)tweenViewBox($("#overlay"),box,480);   // real pan+zoom: same coord space as the city view
   selectWard(id);
   const d=await api(`/api/city/${st.city}/ward/${id}`);st.current=d;
-  const sp=$("#sidepanel");
+  $("#sepCrumb2").classList.remove("hidden"); $("#crumbWard").classList.remove("hidden");
+  $("#crumbWard").textContent=d.ward.label;
+  const sp=$("#sidepanel"),side=$("#side");
+  side.classList.remove("hidden");
   sp.classList.remove("drawer-in"); sp.classList.add("drawer-enter");
   sp.innerHTML=wardHTML(d);
+  wireTabs(sp);
   void sp.offsetWidth;                          // force reflow so the enter->in transition actually plays
   sp.classList.remove("drawer-enter"); sp.classList.add("drawer-in");
   // preventive-impact projection (scenario)
   try{const pr=await api(`/api/city/${st.city}/ward/${id}/projection`);
     if(pr&&pr.available)projectionCard(pr);}catch(e){}
-  preventiveSimCard();
-  const bb=$("#backIndia"); if(bb)bb.onclick=()=>backToCityMap();}
+  preventiveSimCard();}
 const PS_LABELS={cooling_centres:"Cooling centres",water_audits:"Water audits",outdoor_work_reschedule:"Outdoor-work rescheduling",welfare_checks:"Welfare checks",grid_energy_notice:"Grid / energy notice"};
 async function preventiveSimCard(){
   const d=st.current; if(!d||!d.ward||!$("#sidepanel"))return;
@@ -562,109 +543,103 @@ function projectionCard(pr){
     <p style="font-size:12px;color:#23344a">If adaptive capacity (cooling access / shelters / shade) rises, modelled mortality risk falls. Scenario on the same defensible-default model.</p>
     ${rows.map(mkbar).join("")}
     <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Scenario, not measured.</b> ${esc(pr.disclosure||"")}</div></div>`;
-  const an=$("#sidepanel").querySelector("#simAnchor");
-  if(an)an.before(holder); else $("#sidepanel").appendChild(holder);
+  const slot=document.getElementById("projSlot");
+  if(slot)slot.appendChild(holder); else $("#sidepanel").appendChild(holder);
 }
 
-function factorRow(s){
+function factorBars(s){
   if(!s||!s.factors)return "";
   const f=s.factors;
-  const cell=(k,v,lab,src)=>`<div style="flex:1;min-width:70px;text-align:center;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fbfdff">
-    <div style="font-size:9.5px;color:var(--muted);font-weight:700;text-transform:uppercase">${k} · ${lab}</div>
-    <div style="font-size:17px;font-weight:800;color:#0a1e40;margin:2px 0">${v}</div>
-    <div style="font-size:9px;color:var(--muted)">${src}</div></div>`;
-  return `<div class="card"><h4>HTSI model factors</h4>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
-      ${cell("H","Hazard",f.H.toFixed(3),"ERA5 anomaly + UTCI")}
-      ${cell("V","Vulnerability",f.V.toFixed(3),"Census 2011 · kutcha per ward")}
-      ${cell("E","Exposure",f.E.toFixed(3),"satellite + MODIS LST")}
-      ${cell("AC","Cooling",f.AC.toFixed(3),"per-ward proxy")}
-    </div>
-    <div style="display:flex;gap:14px;font-size:11px;flex-wrap:wrap;color:#23344a">
-      <span>V index <b>${(f.v_index*100).toFixed(0)}</b> (${Object.keys(f.v_parts||{}).map(k=>k+" "+f.v_parts[k]).join(" · ")})${(f.v_pending&&f.v_pending.length)?` · <span style="color:#b7791f">pending: ${esc(f.v_pending.join(", "))}</span>`:""}</span>
-      <span>Model confidence <b>${Math.round(f.confidence*100)}%</b></span>
-    </div>
-    </div>`;}
-function heroBar(lab,v){
-  const pct=Math.max(0,Math.min(100,Math.round((v||0)*100)));
-  return `<div class="hb-row"><span class="hb-lab">${lab}</span><span class="bar"><i style="width:${pct}%"></i></span></div>`;
+  const row=(lab,v,col,src)=>`<div class="fbarrow"><span class="fblab" title="${esc(src)}">${lab}</span>
+    <div class="bar"><i style="width:${Math.round(Math.min(1,Math.max(0,v))*100)}%;background:${col}"></i></div>
+    <span class="fbval">${v.toFixed(2)}</span></div>`;
+  return `<div class="factorbars">
+    ${row("Hazard",f.H,"#dd3a3a","ERA5 anomaly + UTCI")}
+    ${row("Exposure",f.E,"#f0722c","satellite + MODIS LST")}
+    ${row("Vulnerability",f.V,"#7a4b00","Census 2011 · kutcha per ward")}
+    ${row("Adaptive Cap.",f.AC,"#2e9e5b","per-ward proxy")}
+  </div>
+  <div class="fmeta">V index <b>${(f.v_index*100).toFixed(0)}</b> · confidence <b>${Math.round(f.confidence*100)}%</b>${(f.v_pending&&f.v_pending.length)?` · <span style="color:#b7791f">pending: ${esc(f.v_pending.join(", "))}</span>`:""}</div>`;
 }
 function wardHTML(d){const s=d.snapshot,w=d.ward;
   if(!s||!s.available)return `<div class="w-head"><h2>Ward ${esc(w.label)}</h2></div><p>Insufficient data.</p>`;
-  const c=s.current,env=s.environment.satellite,meas=s.measures,f=(s.factors||{});
+  const c=s.current,env=s.environment.satellite,meas=s.measures;
   const mk=(m,lab)=>`<div class="risk" style="border-left-color:${BCOL[m.band]}"><b style="min-width:150px">${lab}</b>
     <span class="badge bg${m.band}">${esc(m.band)}</span><span class="hint">~${Math.round(m.probability*100)}% above seasonal baseline</span></div>`;
   const gauge=`<svg class="gauge" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="#eef2f7" stroke-width="11"/>
     <circle cx="60" cy="60" r="48" fill="none" stroke="${BCOL[c.band]}" stroke-width="11" stroke-linecap="round"
       stroke-dasharray="${(2*Math.PI*48).toFixed(1)}" stroke-dashoffset="${(2*Math.PI*48*(1-Math.min(1,c.htsi/0.5))).toFixed(1)}" transform="rotate(-90 60 60)"/>
-    <text x="60" y="54" text-anchor="middle" font-size="17" font-weight="800" fill="${BCOL[c.band]}">${c.htsi}</text>
+    <text x="60" y="54" text-anchor="middle" font-size="13" font-weight="700" fill="${BCOL[c.band]}">${c.htsi}</text>
     <text x="60" y="69" text-anchor="middle" font-size="9.5" fill="#6b7c94">HTSI</text></svg>`;
-  const action=(meas.admin&&meas.admin[0])||(meas.user&&meas.user[0])||"No immediate action required.";
+  const topAction=(meas.admin&&meas.admin[0])||(meas.user&&meas.user[0])||"No escalated action required at this level.";
   return `<div class="w-head"><div><h2>${esc(w.label)} <span style="color:var(--muted);font-weight:400">· ${d.city_name}</span></h2>
-    <div class="w-sub">${w.zone?esc("Zone "+w.zone)+" · ":""}${w.area_km2?w.area_km2+" km²":""} · real municipal boundary</div></div></div>
+    <div class="w-sub">${w.zone?esc("Zone "+w.zone)+" · ":""}${w.area_km2?w.area_km2+" km²":""} · real municipal boundary</div></div>
+    <div class="box2">${gauge}<div style="text-align:center"><div class="badge bg${c.band}">${esc(c.band)}</div><div style="font-size:11px;color:var(--muted)">${c.sim_active?"preview":"live"}</div></div></div></div>
 
-  <div class="w-hero">
-    ${gauge}
-    <div class="hero-info">
-      <div class="hero-badge badge bg${c.band}">${esc(c.band).toUpperCase()} RISK</div>
-      <div class="hero-bars">
-        ${heroBar("Hazard",f.H)}
-        ${heroBar("Exposure",f.E)}
-        ${heroBar("Vulnerability",f.V)}
-      </div>
-    </div>
+  ${factorBars(s)}
+  <div class="wact"><div class="wact-lab">Recommended action</div><div class="wact-txt">${esc(topAction)}</div></div>
+
+  <div class="wtabs">
+    <button class="wtab on" data-t="ov">Overview</button>
+    <button class="wtab" data-t="fc">Forecast</button>
+    <button class="wtab" data-t="gd">Guidance</button>
+    <button class="wtab" data-t="dt">Data</button>
   </div>
-  <div class="hero-action"><div><div class="ha-label">Recommended action</div><div class="ha-text">${esc(action)}</div></div></div>
-  ${c.sim_active?`<div class="cav">Under the labelled heatwave simulator (not live). Reset to see today's real conditions.</div>`:""}
 
-  <details class="dsec"><summary>Mortality &amp; Hospitalization Spike</summary><div class="dsec-body">
-    <div class="card" style="border-left:4px solid #dd3a3a"><h4>Output 1 · Mortality Risk</h4>${s.mortality?mk(s.mortality,"Mortality risk"):""}</div>
-    <div class="card"><h4>Output 2 · Hospitalization Spike</h4>${s.hospitalisation?mk(s.hospitalisation,"Hospitalization Spike"):""}</div>
-    <div id="simAnchor"></div>
+  <div class="wtabpanel" data-p="ov">
+    <div class="card" style="border-left:4px solid #dd3a3a"><h4>Output 1 · Mortality Risk</h4>
+      ${s.mortality?mk(s.mortality,"Mortality risk"):""}</div>
+    <div class="card"><h4>Output 2 · Hospitalization Spike</h4>
+      ${s.hospitalisation?mk(s.hospitalisation,"Hospitalization Spike"):""}</div>
     ${mortChart(s)}
-  </div></details>
-
-  <details class="dsec"><summary>Model factors (H / V / E / AC)</summary><div class="dsec-body">${factorRow(s)}</div></details>
-
-  <details class="dsec"><summary>Conditions &amp; forecast</summary><div class="dsec-body">
     <div class="kpis">
-      ${kpi("UTCI",c.utci!=null?c.utci+" °C":"Insufficient")}
+      ${kpi("UTCI","",c.utci!=null?c.utci+" °C":"Insufficient")}
       ${kpi("Air temp",c.tair!=null?c.tair+" °C":"—")}
       ${kpi("Day max",c.daymax!=null?c.daymax+" °C":"—")}
       ${kpi("vs city normal",c.anom!=null?(c.anom>=0?"+":"")+c.anom+" °C":"—")}
       ${kpi("Pop. 2011 (city)",(d.census2011.population/1e6).toFixed(1)+" M")}
     </div>
-    ${forecastCard(s.forecast)}
-  </div></details>
+    ${c.sim_active?`<div class="cav">Under the labelled heatwave preview (not live). Reset to see today's real conditions.</div>`:""}
+  </div>
 
-  <details class="dsec"><summary>Ward environment &amp; city context</summary><div class="dsec-body">
+  <div class="wtabpanel hidden" data-p="fc">
+    ${forecastCard(s.forecast)}
+    <div id="simAnchor"></div>
+    <div id="projSlot"></div>
+  </div>
+
+  <div class="wtabpanel hidden" data-p="gd">
+    <div class="card"><h4>Action measures · ${esc(meas.level)}</h4>
+      <div class="meas"><h5>🏛 Administration / city response</h5><ul>${meas.admin.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>
+      <div class="meas"><h5>📲 Personal guidance (SMS / WhatsApp) — English · Hindi · ${esc((meas.user_i18n||{}).state_lang_name||"state")}</h5>
+        <ul>${meas.user.map((m,i)=>{const u=meas.user_i18n||{};return `<li><div>${esc(m)}</div>${u.hi?`<div style="color:#44566e;font-size:11.5px">हिं: ${esc(u.hi[i]||"")}</div><div style="color:#44566e;font-size:11.5px">${esc(u.state_lang_name||"")}: ${esc((u.state||[])[i]||"")}</div>`:""}</li>`;}).join("")}</ul>
+        ${meas.emergency?`<div style="margin-top:8px;border:1px solid #d64545;background:#fdecec;border-radius:8px;padding:8px 10px;font-size:11.5px">
+          <div style="font-weight:700;color:#a12626;margin-bottom:4px">🚨 Heat-stroke emergency — call ${esc((meas.emergency.numbers||["112","108"]).join(" / "))}</div>
+          <div><b>EN:</b> ${esc(meas.emergency.en.signs)} ${esc(meas.emergency.en.call)}</div>
+          <div style="color:#44566e;margin-top:2px"><b>हिं:</b> ${esc(meas.emergency.hi.signs)} ${esc(meas.emergency.hi.call)}</div>
+          <div style="color:#44566e;margin-top:2px"><b>${esc(meas.emergency.state_lang_name||"")}:</b> ${esc(meas.emergency.state.signs)} ${esc(meas.emergency.state.call)}</div></div>`:""}</div></div>
+  </div>
+
+  <div class="wtabpanel hidden" data-p="dt">
     <div class="card"><h4>Ward environment <span class="hint">real satellite analysis</span></h4>${satBars(env)}
       <div class="prov">${esc(s.layers.satellite.source)} · <span class="tag sat">satellite</span></div></div>
     <div class="card"><h4>City context</h4><table class="t"><tbody>
       <tr><td>Population (Census 2011)</td><td>${(d.census2011.population).toLocaleString()}</td></tr>
       <tr><td>Cooling access (this ward)</td><td>${Math.round((s.environment.ac_ward||0)*100)}% <span class="hint">per-ward proxy · city base ${Math.round((s.environment.ac_city||0)*100)}% · ${esc((s.environment.ac_info||{}).green_source||"")} · ${esc(d.ac_ref.basis)}</span></td></tr>
       <tr><td>Seasonal threshold (this month)</td><td>${c.baseline_90} °C <span class="tag sat">ERA5</span></td></tr></tbody></table></div>
-  </div></details>
-
-  <details class="dsec"><summary>Action measures · ${esc(meas.level)}</summary><div class="dsec-body">
-    <div class="meas"><h5>🏛 Administration / city response</h5><ul>${meas.admin.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></div>
-    <div class="meas"><h5>📲 Personal guidance (SMS / WhatsApp) — English · Hindi · ${esc((meas.user_i18n||{}).state_lang_name||"state")}</h5>
-      <ul>${meas.user.map((m,i)=>{const u=meas.user_i18n||{};return `<li><div>${esc(m)}</div>${u.hi?`<div style="color:#44566e;font-size:11.5px">हिं: ${esc(u.hi[i]||"")}</div><div style="color:#44566e;font-size:11.5px">${esc(u.state_lang_name||"")}: ${esc((u.state||[])[i]||"")}</div>`:""}</li>`;}).join("")}</ul>
-      ${meas.emergency?`<div style="margin-top:8px;border:1px solid #d64545;background:#fdecec;border-radius:8px;padding:8px 10px;font-size:11.5px">
-        <div style="font-weight:700;color:#a12626;margin-bottom:4px">🚨 Heat-stroke emergency — call ${esc((meas.emergency.numbers||["112","108"]).join(" / "))}</div>
-        <div><b>EN:</b> ${esc(meas.emergency.en.signs)} ${esc(meas.emergency.en.call)}</div>
-        <div style="color:#44566e;margin-top:2px"><b>हिं:</b> ${esc(meas.emergency.hi.signs)} ${esc(meas.emergency.hi.call)}</div>
-        <div style="color:#44566e;margin-top:2px"><b>${esc(meas.emergency.state_lang_name||"")}:</b> ${esc(meas.emergency.state.signs)} ${esc(meas.emergency.state.call)}</div></div>`:""}</div>
-  </div></details>
-
-  <details class="dsec"><summary>Data layers &amp; last update</summary><div class="dsec-body">
+    <div class="sec">Data layers &amp; last update</div>
     <table class="t"><tbody>
       <tr><td>Weather</td><td>${c.tair} °C</td><td><span class="tag ${s.layers.weather.provenance==="live"?"live":"ref"}">${s.layers.weather.provenance}</span></td><td class="prov">${esc(s.layers.weather.cadence)}</td></tr>
       <tr><td>Satellite env</td><td>${(env.veg*100)|0}% veg</td><td><span class="tag sat">satellite</span></td><td class="prov">${esc(s.layers.satellite.cadence)}</td></tr>
       <tr><td>Baseline</td><td>${c.baseline_90} °C</td><td><span class="tag ref">climatology</span></td><td class="prov">${esc(s.layers.baseline.cadence)}</td></tr></tbody></table>
-  </div></details>
-
-  <div class="card" style="margin-top:10px"><button class="btn ghost" id="backIndia" style="width:100%">‹ Back to city map</button></div>`;
+  </div>`;
+}
+function wireTabs(scopeEl){
+  scopeEl.querySelectorAll(".wtab").forEach(btn=>btn.onclick=()=>{
+    scopeEl.querySelectorAll(".wtab").forEach(b=>b.classList.toggle("on",b===btn));
+    const t=btn.dataset.t;
+    scopeEl.querySelectorAll(".wtabpanel").forEach(p=>p.classList.toggle("hidden",p.dataset.p!==t));
+  });
 }
 function kpi(k,v){return `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`;}
 function mortChart(s){
@@ -723,7 +698,33 @@ function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style
 
 /* ---------------- sim ---------------- */
 async function applySim(){const off=parseInt($("#simRange").value,10)||0;const btn=$("#simApply");btn.disabled=true;
-  try{await api("/api/sim",{method:"POST",body:JSON.stringify({offset:off})});if(st.city)await loadWards();}catch(e){$("#hov").textContent="sim error "+e.message;}finally{btn.disabled=false;}}
+  try{await api("/api/sim",{method:"POST",body:JSON.stringify({offset:off})});updateSimBadge(off);if(st.city)await loadWards();}catch(e){$("#hov").textContent="sim error "+e.message;}finally{btn.disabled=false;}}
+function updateSimBadge(off){
+  const b=$("#simBadge");
+  if(off>0){b.textContent="PREVIEW +"+off+"°C";b.className="sim-badge preview";}
+  else{b.textContent="LIVE";b.className="sim-badge live";}
+}
+
+/* ---- on-demand "Overview" panel (spec point 1/5): the rich India/city
+   summary content (national watch cards, city forecast/trend/allocation)
+   is unchanged internally -- it now just lives inside the floating side
+   panel, shown only when asked for, instead of a permanent column. ---- */
+function toggleOverview(){
+  const side=$("#side");
+  if(!side.classList.contains("hidden")&&!st._selectedWardId){closeSide();return;}
+  st._selectedWardId=null;
+  side.classList.remove("hidden");
+  if(st.view==="city")renderSideCity(); else renderSideIndia();
+}
+function closeSide(){
+  if(st._selectedWardId){backToCityMap();return;}
+  $("#side").classList.add("hidden");
+}
+function zoomBy(factor){
+  const svg=$("#overlay"); const cur=parseVB(svg.getAttribute("viewBox"));
+  const [x,y,w,h]=cur, cx=x+w/2, cy=y+h/2, nw=w*factor, nh=h*factor;
+  tweenViewBox(svg,[cx-nw/2,cy-nh/2,nw,nh],220);
+}
 
 /* ---------------- modals ---------------- */
 function modal(html){$("#mbody").innerHTML=html;$("#modal").classList.remove("hidden");}
@@ -736,4 +737,5 @@ async function outboxHTML(){const [r,tw]=await Promise.all([api("/api/outbox"),a
   setTimeout(()=>{const b=document.getElementById("twTest"); if(b)b.onclick=async()=>{b.disabled=true;try{const r2=await api("/api/alerts/test",{method:"POST"});document.getElementById("twRes").textContent="Result: "+r2.channel_result;}catch(e){document.getElementById("twRes").textContent="Error: "+e.message;}finally{b.disabled=false;}};},0);
   return html;}
 
-boot().catch(e=>console.error(e));
+boot().catch(e=>console.error(e));div");h.id="allocCard";
+     
