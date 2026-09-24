@@ -2,7 +2,9 @@
   --bg:#f5f7fa; --card:#ffffff; --line:#e6ebf1; --ink:#10233f; --muted:#6b7c94;
   --accent:#1467f0; --accent-d:#0d4fc4; --accent-soft:#e8f0fe;
   --low:#2e9e5b; --mod:#e8a51d; --high:#f0722c; --sev:#dd3a3a; --grey:#c7d0db;
-  --shadow:0 8px 24px rgba(16,35,63,.08); --r:14px; --mono:ui-monospace,SFMono,Menlo,monospace;
+    --shadow:0 1px 2px rgba(16,35,63,.06),0 1px 1px rgba(16,35,63,.05);
+  --shadow-md:0 6px 20px rgba(16,35,63,.10);
+  --r:12px; --r-sm:8px; --mono:ui-monospace,SFMono,Menlo,monospace;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -16,10 +18,10 @@ button{font:inherit;cursor:pointer}
   padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);
   position:sticky;top:0;z-index:30}
 .brand{display:flex;align-items:center;gap:12px}
-.mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#ff7a3c,#e64a2e);
-  color:#fff;font-weight:800;display:grid;place-items:center;font-size:18px;box-shadow:0 4px 12px rgba(230,74,46,.3)}
+.mark{width:36px;height:36px;border-radius:9px;background:#10233f;
+  color:#fff;font-weight:700;display:grid;place-items:center;font-size:15px;letter-spacing:.4px}
 .name{font-size:19px;font-weight:700;letter-spacing:.2px;line-height:1.1}
-.tag{color:var(--muted);font-size:12px}
+.subtag{color:var(--muted);font-size:12px}
 .top-actions{display:flex;gap:8px;align-items:center}
 .pill{padding:7px 13px;border-radius:20px;border:1px solid var(--line);background:#fff;
   font-size:12.5px;color:var(--muted)}
@@ -28,9 +30,9 @@ button{font:inherit;cursor:pointer}
 button.pill{background:#fff}
 
 /* simulator */
-.simbar{background:#fff8f0;border-bottom:1px solid #ffe3c4;display:flex;flex-wrap:wrap;gap:14px;
-  align-items:center;padding:9px 22px;font-size:13px}
-.sim-flag{font-weight:700;color:#b35012;background:#ffe2c4;padding:3px 10px;border-radius:6px;font-size:12px}
+.simbar{background:#fffaf3;border-bottom:1px solid #f0e0c8;display:flex;flex-wrap:wrap;gap:14px;
+  align-items:center;padding:8px 22px;font-size:12.5px}
+.sim-flag{font-weight:700;color:#9a5b1c;background:#f7e6cd;padding:3px 9px;border-radius:6px;font-size:11.5px}
 .simbar label{display:flex;align-items:center;gap:8px;color:#6b4a24}
 .simbar input{width:150px;accent-color:#f0722c}
 #simVal{color:#b35012;min-width:44px;font-family:var(--mono)}
@@ -177,9 +179,9 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 #methodPage .t th{background:#f4f8fd;color:#23405e;font-weight:700}
 
 /* ===== national status bar ===== */
-.statusbar{display:flex;align-items:center;gap:10px;padding:8px 22px;flex-wrap:wrap;
-  background:linear-gradient(90deg,#fff7ec,#fffdf7);border-bottom:1px solid #ffe2c0;
-  font-size:12.5px;color:#7a4b00}
+.statusbar{display:flex;align-items:center;gap:10px;padding:7px 22px;flex-wrap:wrap;
+  background:#f7f9fc;border-bottom:1px solid var(--line);
+  font-size:12px;color:#44566e}
 .statusbar b{color:#10233f}
 .sb-dot{width:9px;height:9px;border-radius:50%;background:#c7d0db;flex:0 0 auto}
 .sb-dot.live{background:#1c7d3f;box-shadow:0 0 0 3px rgba(28,125,63,.16)}
@@ -259,3 +261,51 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 #sidepanel{transition:transform .22s cubic-bezier(.2,.7,.3,1),opacity .18s}
 #sidepanel.drawer-in{transform:translateX(0);opacity:1}
 #sidepanel.drawer-enter{transform:translateX(24px);opacity:0}
+
+/* ===== redesign additions ===== */
+.map-top-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.tbtn{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;
+  color:#33475f;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:9px;transition:.12s}
+.tbtn:hover{border-color:#cfe0ff;color:var(--accent)}
+.tbtn .chev{transition:transform .15s}
+.tbtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.filtersWrap{position:relative}
+.filtersPop{position:absolute;top:calc(100% + 8px);right:0;width:230px;background:#fff;
+  border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-md);padding:12px;z-index:25}
+.fp-block+.fp-block{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.fp-label{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.filtersPop .seg{width:100%;flex-wrap:wrap}
+.filtersPop #filterbar{padding:0;border:none;background:none}
+
+/* compact India landing panel */
+.ov-head.compact{padding:16px 18px 4px}
+.ov-head.compact h2{font-size:15px}
+.ov-head.compact p{font-size:12px}
+.linkbtn{background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;
+  padding:8px 18px;text-align:left;width:100%;cursor:pointer}
+.linkbtn:hover{text-decoration:underline}
+
+/* ward hero summary — always visible, everything else is progressive */
+.w-hero{display:flex;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:12px}
+.hero-info{flex:1;min-width:0}
+.hero-badge{display:inline-block;margin-bottom:9px;letter-spacing:.3px}
+.hero-bars .hb-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.hero-bars .hb-lab{width:82px;font-size:11px;color:var(--muted);flex:none}
+.hero-bars .bar{flex:1}
+.hero-action{display:flex;gap:10px;background:#f6f8fb;border:1px solid var(--line);
+  border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.hero-action .ha-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.hero-action .ha-text{font-size:13px;color:#10233f;font-weight:600;margin-top:2px}
+
+/* progressive-disclosure accordions */
+details.dsec{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fff;overflow:hidden}
+details.dsec>summary{list-style:none;cursor:pointer;padding:11px 14px;font-size:13px;font-weight:700;
+  color:#23344a;display:flex;justify-content:space-between;align-items:center}
+details.dsec>summary::-webkit-details-marker{display:none}
+details.dsec>summary::after{content:"+";color:var(--muted);font-weight:400;font-size:16px}
+details.dsec[open]>summary::after{content:"–"}
+details.dsec[open]>summary{border-bottom:1px solid var(--line)}
+details.dsec>summary:hover{color:var(--accent)}
+details.dsec>.dsec-body{padding:4px 14px 12px}
+details.dsec>.dsec-body .card{border:none;padding:10px 0;margin:0;border-top:1px solid var(--line)}
+details.dsec>.dsec-body .card:first-child{border-top:none}
