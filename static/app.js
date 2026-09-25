@@ -376,7 +376,8 @@ async function allocationCard(city){
     const a=await api(`/api/city/${city}/allocation`);
     const rows=(a.rows||[]).filter(r=>r.priority_score>0).slice(0,6);
     const bcol=r=>r.mort_band==="Severe"?"#dd3a3a":r.mort_band==="High"?"#f0722c":r.mort_band==="Moderate"?"#e8a51d":"#2e9e5b";
-    const h=document.createElement("    h.innerHTML=`<div class="card"><h4>Resource allocation <span class="hint">top at-risk wards</span></h4>
+    const h=document.createElement("div");h.id="allocCard";
+    h.innerHTML=`<div class="card"><h4>Resource allocation <span class="hint">top at-risk wards</span></h4>
       <table class="t"><thead><tr><th>Ward</th><th>Mort</th><th>Score</th><th>Share</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${esc(r.ward)}</td><td><span class="badge bg${r.mort_band}" style="font-size:10px">${r.mort_band}</span></td>
         <td>${r.priority_score}</td><td>${r.share_pct}%</td></tr>`).join("")||`<tr><td colspan="4">No wards currently elevated (all Low risk).</td></tr>`}
@@ -737,5 +738,4 @@ async function outboxHTML(){const [r,tw]=await Promise.all([api("/api/outbox"),a
   setTimeout(()=>{const b=document.getElementById("twTest"); if(b)b.onclick=async()=>{b.disabled=true;try{const r2=await api("/api/alerts/test",{method:"POST"});document.getElementById("twRes").textContent="Result: "+r2.channel_result;}catch(e){document.getElementById("twRes").textContent="Error: "+e.message;}finally{b.disabled=false;}};},0);
   return html;}
 
-boot().catch(e=>console.error(e));div");h.id="allocCard";
-     
+boot().catch(e=>console.error(e));
