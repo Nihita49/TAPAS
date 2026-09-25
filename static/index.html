@@ -4,6 +4,8 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>TAPAS · Thermal Assessment &amp; Protection Analytics System</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <link rel="stylesheet" href="/static/styles.css"/>
 </head>
 <body>
@@ -28,7 +30,7 @@
 
 <div id="simbar" class="simbar">
   <span id="simBadge" class="sim-badge live">LIVE</span>
-  <button id="simToggle" class="btn ghost sm">Preview a heatwave…</button>
+  <button id="simToggle" class="btn ghost sm">Preview a heatwave… Simulator</button>
   <div id="simPop" class="sim-pop hidden">
     <label>Raise ward temperature&nbsp;<input id="simRange" type="range" min="0" max="10" step="1" value="0"/><b id="simVal">+0 °C</b></label>
     <button id="simApply" class="btn sm">Apply preview</button>
@@ -60,9 +62,7 @@
     </div>
     <div id="filterbar" class="filterbar hidden"></div>
     <div id="gis" class="gis">
-      <img id="base" class="hidden" alt="satellite basemap"/>
-      <div id="indiaWrap" class="india-wrap"></div>
-      <svg id="overlay" class="hidden"></svg>
+      <div id="map"></div>
       <div id="hov" class="hov"></div>
       <div class="mapctl">
         <button id="zIn" title="Zoom in">+</button>
@@ -83,6 +83,8 @@
 
 <div id="modal" class="modal hidden"><div class="mcard"><button id="mclose" class="mx">×</button><div id="mbody"></div></div></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
