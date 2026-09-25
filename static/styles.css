@@ -62,11 +62,10 @@ button.pill{background:#fff}
 .seg button{border:none;background:transparent;padding:5px 12px;border-radius:7px;font-size:12.5px;color:var(--muted)}
 .seg button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .gis{position:relative;flex:1;min-height:0;background:#dfe7ef}
-.gis img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;z-index:1}
-#overlay{position:absolute;inset:0;width:100%;height:100%;z-index:3}
-#overlay path{stroke:#fff;stroke-width:.8;cursor:pointer}
-#overlay path.ward{fill-opacity:.42}
-#overlay path.ward:hover{stroke:#0d1f38;stroke-width:1.7;fill-opacity:.62}
+#map{position:absolute;inset:0;width:100%;height:100%;z-index:1;background:#e8edf2}
+.leaflet-container{font-family:inherit}
+.leaflet-control-attribution{font-size:10px}
+path.leaflet-interactive{cursor:pointer;transition:fill-opacity .2s,opacity .25s}
 .hov{position:absolute;left:10px;top:10px;z-index:5;background:rgba(255,255,255,.94);border:1px solid var(--line);
   border-radius:8px;padding:6px 10px;font-size:12px;box-shadow:var(--shadow);color:var(--ink)}
 /* floating zoom/home controls (spec point 7) */
@@ -155,18 +154,7 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 @media(max-width:640px){.top-actions .pill{display:none}}
 
 /* ---- India landing map ---- */
-.india-wrap{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center}
-.india-wrap svg{width:100%;height:100%}
-.india-wrap path.st{fill:#e7eef5;stroke:#fff;stroke-width:.8;cursor:pointer}
-.india-wrap path.st:hover{fill:#d6e4f2}
-.india-wrap path.st.pilot{fill:#cfe3f7}
-.istate{font-size:9px;fill:#93a5bb}
-.mkr{fill:#fff;stroke:#1467f0;stroke-width:2.5;cursor:pointer}
-.mkr.pulse{fill:#e64a2e;stroke:#ffd9cc;stroke-width:2}
-.mkr:hover{stroke-width:4}
-.mlab{font-size:12px;font-weight:700;fill:#10233f;cursor:pointer;paint-order:stroke;stroke:#fff;stroke-width:3px}
-.gis.india{background:#fbfdff}
-.gis.india #base,.gis.india #overlay{display:none}
+.wtip{font-size:12px;padding:5px 8px}
 
 /* Methodology quick nav */
 .method h2{margin-top:0}
@@ -257,22 +245,22 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 .fchip .cnt{opacity:.85;font-weight:700}
 .fchip:not(.on):hover{border-color:#cfe0ff}
 
-/* ---- ward dim (filter) + pulse-on-locate (search) ---- */
-#overlay path.ward.dim{opacity:.16;transition:opacity .25s}
-#overlay path.ward{transition:opacity .25s}
-#overlay path.ward.selected{stroke:#0a1e40;stroke-width:2.6}
+/* ---- ward dim (filter) + pulse-on-locate (search) -- these classes are
+   added/removed via JS directly on Leaflet's own rendered <path> elements
+   (leaflet's default SVG renderer), so no #overlay-specific selector is
+   needed any more. ---- */
+path.leaflet-interactive.dim{opacity:.16!important}
+path.leaflet-interactive.selected{stroke:#0a1e40!important;stroke-width:2.6!important}
 @keyframes wardPulse{
   0%{stroke-width:.8;stroke:#fff}
   30%{stroke-width:5;stroke:#1467f0}
   60%{stroke-width:2;stroke:#1467f0}
   100%{stroke-width:.8;stroke:#fff}
 }
-#overlay path.ward.pulse{animation:wardPulse .55s ease-out 2;stroke:#1467f0}
+path.leaflet-interactive.pulse{animation:wardPulse .55s ease-out 2;stroke:#1467f0!important}
 
-/* ---- map-panel zoom transition (India<->City hop; ward hop uses real viewBox tween) ---- */
-.gis{transition:opacity .18s ease-out,transform .18s ease-out}
-.gis.zoom-out{opacity:0;transform:scale(1.06)}
-.gis.zoom-in-start{opacity:0;transform:scale(.92)}
+/* map transitions are now real geographic pan/zoom via Leaflet's flyTo/
+   fitBounds -- no CSS crossfade trick needed for the India<->City hop. */
 
 /* ---- side panel "drawer" slide when a ward is opened ---- */
 .side{transition:opacity .16s ease-out}
