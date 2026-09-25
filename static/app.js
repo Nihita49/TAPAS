@@ -1,70 +1,43 @@
 "use strict";
 /* TAPAS 4-city front-end.
-   Views: INDIA (national landing map + city markers) -> CITY (satellite GIS
-   ward map) -> WARD detail. Mortality & Hospitalization Spike are separate logistics
-   on the same weighted H/V/E/AC factors as HTSI.
-   Self-contained; satellite ward polygons drawn over the real Esri basemap. */
+   Views: INDIA (national landing map + city markers) -> CITY (real Leaflet
+   ward map) -> WARD detail. Mortality & Hospitalization Spike are separate
+   logistics on the same weighted H/V/E/AC factors as HTSI.
+   Map: real Leaflet map on a CARTO Positron (light) tile basemap. Ward/state
+   polygons are real GeoJSON from the backend (data/cities/{City}/wards.geojson,
+   data/processed/india_simp.geojson) rendered as genuine Leaflet vector
+   layers -- no static basemap image, no hand-rolled projection. */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const BCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 const LAYERLAB={"htsi":"Hazard risk (HTSI)","mort":"Mortality risk","hosp":"Hospitalization Spike","utci":"UTCI hazard (°C)","veg":"Satellite vegetation (%)"};
+const INDIA_CENTER=[22.9,79.0], INDIA_ZOOM=5;
+const CARTO_LIGHT="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const CARTO_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
-  wardEls:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
-  cityFullViewBox:null,_selectedWardId:null};
+  map:null,wardLayers:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
+  cityFullBounds:null,_selectedWardId:null};
 async function api(p,opts){const r=await fetch(p,Object.assign({headers:{"Content-Type":"application/json"}},opts));if(!r.ok)throw new Error((await r.text()).slice(0,140));return r.json();}
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
-
-/* ---- persistent-canvas zoom transition (India<->City hop): crossfade+scale
-   the whole #gis container across the content swap, since the two views use
-   different projections and can't be tweened as one continuous coordinate
-   space. City<->Ward hops instead use a real viewBox tween (tweenViewBox
-   below), since ward paths live in the SAME coordinate space as the city's
-   viewBox, so that zoom can be a genuine, mathematically correct pan/scale. */
-async function zoomTransition(mutate){
-  const gis=$("#gis");
-  gis.classList.add("zoom-out");
-  await sleep(170);
-  await mutate();
-  gis.classList.add("zoom-in-start");
-  gis.classList.remove("zoom-out");
-  void gis.offsetWidth;              // force reflow so the browser commits the start state
-  gis.classList.remove("zoom-in-start");
-}
-function parseVB(s){return (s||"0 0 100 100").split(/\s+/).map(Number);}
-function tweenViewBox(svg,to,dur){
-  const from=parseVB(svg.getAttribute("viewBox"));
-  const token=(svg._vbToken=(svg._vbToken||0)+1);   // cancels any in-flight tween on this svg
-  const t0=performance.now();
-  function step(now){
-    if(svg._vbToken!==token)return;
-    const p=Math.min(1,(now-t0)/dur);
-    const e=1-Math.pow(1-p,3);       // ease-out cubic
-    svg.setAttribute("viewBox",from.map((v,i)=>v+(to[i]-v)*e).join(" "));
-    if(p<1)requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
-function wardTargetBox(id){
-  const els=st.wardEls[id]; if(!els||!els.length)return null;
-  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
-  try{
-    els.forEach(el=>{const b=el.getBBox();x1=Math.min(x1,b.x);y1=Math.min(y1,b.y);x2=Math.max(x2,b.x+b.width);y2=Math.max(y2,b.y+b.height);});
-  }catch(e){return null;}   // getBBox needs a rendered/laid-out element; fail safe by skipping the zoom rather than throwing
-  if(!isFinite(x1))return null;
-  const w=Math.max(1,x2-x1),h=Math.max(1,y2-y1),pad=Math.max(w,h)*0.45+8;
-  return [x1-pad,y1-pad,w+pad*2,h+pad*2];
-}
-
-/* mercator (matches backend) */
-function mX(lon,z){return (lon+180)/360*Math.pow(2,z)*256;}
-function mY(lat,z){const r=lat*Math.PI/180;return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z)*256;}
-function ringP(ring,z,tx,ty){let d="";for(let i=0;i<ring.length;i++){const p=ring[i],x=mX(p[0],z)-tx*256,y=mY(p[1],z)-ty*256;d+=(i?"L":"M")+x.toFixed(1)+" "+y.toFixed(1)+" ";}return d+"Z";}
-function polyPaths(geom,z,tx,ty){const o=[];if(geom.type==="Polygon"){for(const r of geom.coordinates)o.push(ringP(r,z,tx,ty));}else{for(const poly of geom.coordinates)o.push(ringP(poly[0],z,tx,ty));}return o;}
 function heat(v,min,max){const t=Math.max(0,Math.min(1,(v-min)/(max-min||1)));return `rgb(${Math.round(30+215*t)},${Math.round(60+120*(1-t))},${Math.round(210-150*t)})`;}
+
+/* ---- real Leaflet map, created once. India view and City/Ward views all
+   share this ONE map instance -- switching levels is a genuine geographic
+   flyTo()/fitBounds() on real coordinates, not a content swap. ---- */
+function initMap(){
+  st.map=L.map("map",{zoomControl:false,minZoom:4,maxZoom:18}).setView(INDIA_CENTER,INDIA_ZOOM);
+  L.tileLayer(CARTO_LIGHT,{attribution:CARTO_ATTR,maxZoom:19,subdomains:"abcd"}).addTo(st.map);
+  st.indiaLayer=L.layerGroup().addTo(st.map);
+  st.markerLayer=L.layerGroup().addTo(st.map);
+  st.wardLayerGroup=L.layerGroup().addTo(st.map);
+  st.map.on("click",()=>{const d=$("#searchDrop"); if(d)d.classList.add("hidden");});
+}
+
 
 /* ---------------- boot & header ---------------- */
 async function boot(){
   try{
+    initMap();
     const [a,b]=await Promise.all([api("/api/india"),api("/api/cities")]);
     st.india=a; st.cities=b.cities; st.sim=b.sim; paintLive(); paintStatus(b);
     $("#outbox").onclick=async()=>modal(await outboxHTML());
@@ -82,7 +55,7 @@ async function boot(){
     $("#ovBtn").onclick=()=>toggleOverview();
     $("#filterToggle").onclick=()=>{$("#filterbar").classList.toggle("hidden");};
     $("#sideClose").onclick=()=>closeSide();
-    $("#zIn").onclick=()=>zoomBy(0.72); $("#zOut").onclick=()=>zoomBy(1.4);
+    $("#zIn").onclick=()=>st.map.zoomIn(); $("#zOut").onclick=()=>st.map.zoomOut();
     $("#zHome").onclick=()=>goIndia();
     wireSearch();
     buildSearchIndex();   // background; doesn't block first paint
@@ -101,7 +74,7 @@ function paintStatus(b){
   $("#sbText").innerHTML=`National heat-watch &middot; <b>${live}/${cs.length}</b> cities on live weather${extra}. Mortality, Hospitalization Spike &amp; V are <b>early-warning signals on defensible-default (not clinically validated)</b> coefficients.`;
 }
 function cityInfo(id){return st.cities.find(c=>c.id===id);}
-async function goIndia(){await zoomTransition(async()=>{renderIndia();});}
+async function goIndia(){renderIndia(); st.map.flyTo(INDIA_CENTER,INDIA_ZOOM,{duration:0.9});}
 
 /* ---- ward search: cross-city index built once in the background; the
    dropdown scopes to the current city once one is open. Selecting a
@@ -152,9 +125,7 @@ function wireSearch(){
 /* ================= INDIA (landing) = proper national GIS ================= */
 function renderIndia(){
   st.view="india";
-  $("#gis").classList.remove("india");
-  $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden"); $("#hov").classList.remove("hidden");
-  $("#indiaWrap").classList.add("hidden");
+  $("#hov").classList.remove("hidden");
   $("#layers").classList.add("hidden");
   $("#filterbar").classList.add("hidden"); $("#filterbar").innerHTML="";
   $("#filterToggle").classList.add("hidden"); $("#simToggle").classList.add("hidden");
@@ -168,46 +139,31 @@ function renderIndia(){
   $("#legend").innerHTML=`<span style="font-size:11px;font-weight:700">National coverage</span>
     <span class="cell"><span class="sw" style="background:#1467f0"></span>Live pilot city — click to open</span>
     <span class="cell"><span class="sw" style="background:#0a1e40;border:0"></span>State boundaries</span>`;
-  $("#srcnote").textContent="Real GIS basemap (Esri World Street Map). Click a pilot-city marker (Ahmedabad · Chennai · Hyderabad · Mumbai) to open its satellite ward map.";
+  $("#srcnote").textContent="Real GIS map (Leaflet · CARTO Positron basemap · real state/ward GeoJSON). Click a pilot-city marker (Ahmedabad · Chennai · Hyderabad · Mumbai) to open its ward map.";
   renderSideIndia();
 }
+/* ---- real geographic India layer: actual state-boundary GeoJSON +
+   circleMarkers at each city's real [lon,lat] centre. Replaces the old
+   hand-projected SVG-over-a-static-PNG approach entirely. ---- */
 function renderNationalMap(){
-  const mm=st.india.mapmeta||{zoom:5,tx:22,ty:12,nx:3,ny:4,W:768,H:1024};
-  const z=Number(mm.zoom), tx=Number(mm.tx), ty=Number(mm.ty), W=Number(mm.W), H=Number(mm.H);
-  $("#base").src="/api/india/basemap";
-  $("#gis").style.aspectRatio=W+"/"+H;
-  const svg=$("#overlay"); svg.innerHTML="";
-  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("preserveAspectRatio","none");
-  const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-  const px=lon=>mX(lon,z)-tx*256, py=lat=>mY(lat,z)-ty*256;
+  st.indiaLayer.clearLayers(); st.markerLayer.clearLayers(); st.wardLayerGroup.clearLayers();
   const pilotStates=["Maharashtra","Gujarat","Tamil Nadu","Telangana"];
-  const ringD=ring=>{let d="",n=0;ring.forEach(pt=>{if(!pt||pt.length<2||!isFinite(pt[0])||!isFinite(pt[1]))return;const x=px(pt[0]),y=py(pt[1]);if(!isFinite(x)||!isFinite(y))return;d+=(n++?"L":"M")+x.toFixed(1)+" "+y.toFixed(1)+" ";});return n>=3?d+"Z":"";};
-  (st.india.states.features||[]).forEach(f=>{
-    const nm=f.properties.name,geo=f.geometry; if(!geo)return;
-    let rings=geo.type==="Polygon"?[geo.coordinates[0]]:geo.coordinates.map(p=>p[0]);
-    const d=rings.map(ringD).join(" "); if(!d)return;
-    const isPilot=pilotStates.includes(nm);
-    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
-    p.setAttribute("d",d);
-    p.setAttribute("fill",isPilot?"rgba(20,103,240,0.16)":"rgba(255,255,255,0)");
-    p.setAttribute("stroke",isPilot?"#1467f0":"rgba(15,40,80,0.35)");
-    p.setAttribute("stroke-width",isPilot?"1.6":"0.7");
-    p.addEventListener("click",()=>{$("#hov").innerHTML=nm+(isPilot?" — live pilot state (click a city marker).":" — roll-out roadmap state.");});
-    g.appendChild(p);
-  });
-  // markers on top
+  L.geoJSON(st.india.states,{
+    style:f=>{const pilot=pilotStates.includes(f.properties.name);
+      return {fillColor:pilot?"#cfe3f7":"transparent",fillOpacity:pilot?0.35:0,
+        color:pilot?"#1467f0":"rgba(15,40,80,0.28)",weight:pilot?1.4:0.7};},
+    onEachFeature:(f,layer)=>{
+      const pilot=pilotStates.includes(f.properties.name);
+      layer.on("mouseover",()=>{$("#hov").innerHTML=esc(f.properties.name)+(pilot?" — live pilot state (click a city marker).":" — roll-out roadmap state.");});
+    }
+  }).addTo(st.indiaLayer);
   (st.india.cities||[]).forEach(c=>{
-    const cx=px(c.centre[0]),cy=py(c.centre[1]);
-    if(!isFinite(cx)||!isFinite(cy))return;
-    const el=document.createElementNS("http://www.w3.org/2000/svg","g");
-    const o=document.createElementNS("http://www.w3.org/2000/svg","circle");o.setAttribute("cx",cx);o.setAttribute("cy",cy);o.setAttribute("r",9);o.setAttribute("fill","#fff");o.setAttribute("stroke","#1467f0");o.setAttribute("stroke-width","2.5");o.style.cursor="pointer";
-    const i=document.createElementNS("http://www.w3.org/2000/svg","circle");i.setAttribute("cx",cx);i.setAttribute("cy",cy);i.setAttribute("r",4.5);i.setAttribute("fill","#1467f0");
-    const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",cx+13);t.setAttribute("y",cy+4);t.setAttribute("font-size","13");t.setAttribute("font-weight","700");t.setAttribute("fill","#0a1e40");t.setAttribute("paint-order","stroke");t.setAttribute("stroke","#fff");t.setAttribute("stroke-width","3");t.style.cursor="pointer";t.textContent=c.name;
-    [o,i,t].forEach(n=>{n.addEventListener("click",(e)=>{e.stopPropagation();openCity(c.id);});n.addEventListener("mouseenter",()=>{$("#hov").innerHTML=`<b>${c.name}</b> (${c.state}) · ${c.n_wards} wards · <i>click to open</i>`;});});
-    el.appendChild(o);el.appendChild(i);el.appendChild(t);g.appendChild(el);
+    const [lon,lat]=c.centre;
+    const m=L.circleMarker([lat,lon],{radius:9,color:"#1467f0",weight:2.5,fillColor:"#fff",fillOpacity:1}).addTo(st.markerLayer);
+    m.bindTooltip(`<b>${esc(c.name)}</b> (${esc(c.state)}) · ${c.n_wards} wards`,{direction:"top",offset:[0,-10],className:"wtip"});
+    m.on("click",()=>openCity(c.id));
   });
-  svg.appendChild(g);
-  $("#hov").textContent="India — four live pilot cities on a real GIS basemap. Click a marker.";
+  $("#hov").textContent="India — four live pilot cities on a real GIS map. Click a marker.";
 }
 
 const _WBAND=["Low","Moderate","High","Severe"];
@@ -291,24 +247,21 @@ async function cityTrendCard(city){
 
 /* ================= CITY ================= */
 async function openCity(id){
-  await zoomTransition(async()=>{
-    st.city=id;st.view="city";
-    st.filterBands=new Set(["Low","Moderate","High","Severe"]);   // fresh filter state per city
-    st._selectedWardId=null;
-    const gis=$("#gis"); gis.classList.remove("india");
-    $("#indiaWrap").classList.add("hidden");
-    $("#base").classList.remove("hidden"); $("#overlay").classList.remove("hidden");
-    $("#layers").classList.remove("hidden");
-    $("#filterToggle").classList.remove("hidden"); $("#simToggle").classList.remove("hidden");
-    $("#ovBtn").textContent="City overview";
-    $("#side").classList.add("hidden");
-    $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
-    $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
-    $("#crumbCity").textContent=cityInfo(id).name;
-    $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
-    updateSearchPlaceholder();
-    await loadWards();
-  });
+  st.city=id;st.view="city";
+  st.filterBands=new Set(["Low","Moderate","High","Severe"]);   // fresh filter state per city
+  st._selectedWardId=null;
+  $("#layers").classList.remove("hidden");
+  $("#filterToggle").classList.remove("hidden"); $("#simToggle").classList.remove("hidden");
+  $("#ovBtn").textContent="City overview";
+  $("#side").classList.add("hidden");
+  $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
+  $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
+  $("#crumbCity").textContent=cityInfo(id).name;
+  $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
+  updateSearchPlaceholder();
+  const [lon,lat]=cityInfo(id).centre;
+  st.map.flyTo([lat,lon],12,{duration:1.1});   // real geographic fly-to; fitBounds below tightens to the exact ward extent once loaded
+  await loadWards();
 }
 const _geomCache={}; // city -> {id: geometry}, fetched once per city (static, never changes)
 async function loadWards(){
@@ -321,21 +274,23 @@ async function loadWards(){
   const d=await api(`/api/city/${st.city}/wards`);
   st.geo=d.features.map(f=>({...f,geometry:gc[f.properties.id]||f.geometry}));
   st.mapmeta=d.mapmeta;st.sim=d.sim;st.agg=d.aggregate||null;
-  const {tx,ty,W,H}=st.mapmeta;
-  $("#base").src=`/api/city/${st.city}/basemap`;
-  $("#gis").style.aspectRatio=W+"/"+H;
-  const svg=$("#overlay");svg.innerHTML="";svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("preserveAspectRatio","none");
-  st.cityFullViewBox=`0 0 ${W} ${H}`;
-  st.wardEls={};
-  const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-  st.geo.forEach(f=>{const p=f.properties;polyPaths(f.geometry,st.mapmeta.zoom,st.mapmeta.tx,st.mapmeta.ty).forEach(pth=>{
-    const el=document.createElementNS("http://www.w3.org/2000/svg","path");el.setAttribute("d",pth);el.setAttribute("class","ward");
-    colorPath(el,p);
-    el.addEventListener("click",()=>openWard(p.id));
-    el.addEventListener("mouseenter",()=>{$("#hov").innerHTML=hovText(p);});
-    g.appendChild(el);
-    (st.wardEls[p.id]=st.wardEls[p.id]||[]).push(el);});});
-  svg.appendChild(g);
+
+  st.indiaLayer.clearLayers(); st.markerLayer.clearLayers(); st.wardLayerGroup.clearLayers();
+  st.wardLayers={};
+  const layer=L.geoJSON({type:"FeatureCollection",features:st.geo},{
+    style:f=>wardStyle(f.properties),
+    onEachFeature:(f,lyr)=>{
+      const p=f.properties;
+      st.wardLayers[p.id]=lyr;
+      lyr.bindTooltip(hovText(p),{sticky:true,direction:"top",className:"wtip"});  // lightweight hover only
+      lyr.on("click",()=>openWard(p.id));
+      lyr.on("mouseover",()=>{if(st._selectedWardId!==p.id)lyr.setStyle({weight:2.2,color:"#0d1f38"});});
+      lyr.on("mouseout",()=>{if(st._selectedWardId!==p.id)lyr.setStyle(wardStyle(p));});
+    }
+  }).addTo(st.wardLayerGroup);
+  st.cityFullBounds=layer.getBounds();
+  st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.6});   // snap to the real ward extent
+
   setLayer(st.layer,true);
   renderFilterBar(); applyFilterDim();
   renderSideCity();
@@ -366,9 +321,9 @@ function renderFilterBar(){
 }
 function applyFilterDim(){
   (st.geo||[]).forEach(f=>{
-    const p=f.properties,els=st.wardEls[p.id]||[];
+    const p=f.properties,lyr=st.wardLayers[p.id]; if(!lyr)return;
     const dim=p.available&&!st.filterBands.has(p.band);
-    els.forEach(el=>el.classList.toggle("dim",dim));
+    const el=lyr.getElement&&lyr.getElement(); if(el)el.classList.toggle("dim",dim);
   });
 }
 async function allocationCard(city){
@@ -442,18 +397,17 @@ function hovText(p){if(!p.available)return "Ward "+esc(p.label)+" — Insufficie
   if(st.layer==="utci")return `<b>${esc(p.label)}</b> · UTCI ${p.utci} °C · air ${p.tair} °C`;
   if(st.layer==="veg")return `<b>${esc(p.label)}</b> · vegetation ${(p.veg*100).toFixed(0)}%`;
   return `<b>${esc(p.label)}</b> · HTSI ${p.htsi} (<span class="c${p.band}">${p.band}</span>)<br>Mortality ${p.mort} · Hospitalization Spike ${p.hosp}`;}
-function colorPath(el,p){
-  if(!p.available){el.setAttribute("fill","#c7d0db");el.setAttribute("stroke-dasharray","2 2");return;}
+function wardStyle(p){
+  if(!p.available)return {fillColor:"#c7d0db",fillOpacity:0.35,color:"#fff",weight:1,dashArray:"3 3"};
   let f;
   if(st.layer==="utci")f=heat(p.utci||20,22,44);
   else if(st.layer==="veg")f=heat(p.veg?p.veg*100:0,0,40);
   else{const key=st.layer==="mort"?p.mort:st.layer==="hosp"?p.hosp:p.band;f=BCOL[key]||"#999";}
-  el.setAttribute("fill",f);
+  return {fillColor:f,fillOpacity:0.55,color:"#fff",weight:1};
 }
 function setLayer(l,silent){st.layer=l;
   document.querySelectorAll("#layers button").forEach(b=>b.classList.toggle("on",b.dataset.l===l));
-  const lh=$("#layerHint"); if(lh)lh.textContent=LAYERLAB[l]||"";
-  if(st.geo&&!silent){const els=$("#overlay").querySelectorAll("path.ward");st.geo.forEach((f,i)=>{if(els[i])colorPath(els[i],f.properties);});}
+  if(st.geo&&!silent){st.geo.forEach(f=>{const lyr=st.wardLayers[f.properties.id];if(lyr)lyr.setStyle(wardStyle(f.properties));});}
   renderLegend();}
 function renderLegend(){const lg=$("#legend");
   if(st.layer==="utci"){lg.innerHTML=`<span style="font-size:11px;font-weight:700">UTCI heat stress (°C)</span>`+gradCells([[22,"22"],[30,"30"],[36,"36"],[44,"44+"]],v=>heat(v,22,44));return;}
@@ -463,29 +417,38 @@ function renderLegend(){const lg=$("#legend");
   const hint=(st.layer==="mort"||st.layer==="hosp")?'<span style="color:#7a4b00;font-size:11px">Mortality &amp; Hospitalization Spike are decision outputs computed from the same weighted H/V/E/AC factors as HTSI via a separate exposure–response logistic.</span>':"";
   if(hint)lg.insertAdjacentHTML("beforeend",hint);}
 function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden">`+arr.map(([v,lab])=>`<span style="width:32px;height:16px;background:${fn?fn(v):"#fff"};display:grid;place-items:center;font-size:9px;color:#fff">${lab}</span>`).join("")+`</span>`;}
-function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Basemap & thermal analysis: Esri World Imagery (real satellite, per-ward). Boundaries: ${c.boundary_source||"municipal wards"}. Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
+function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Real GIS map: Leaflet + CARTO Positron basemap, real ward boundaries (${c.boundary_source||"municipal wards"}). Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
 
 /* ================= WARD ================= */
 function selectWard(id){
-  if(st._selectedWardId&&st.wardEls[st._selectedWardId])
-    st.wardEls[st._selectedWardId].forEach(el=>el.classList.remove("selected"));
+  if(st._selectedWardId&&st.wardLayers[st._selectedWardId]){
+    const prev=st.wardLayers[st._selectedWardId];
+    prev.setStyle(wardStyle(prev.feature.properties));
+  }
   st._selectedWardId=id;
-  const els=st.wardEls[id]||[];
-  els.forEach(el=>el.classList.add("selected","pulse"));
-  setTimeout(()=>els.forEach(el=>el.classList.remove("pulse")),1150);
+  const lyr=st.wardLayers[id]; if(!lyr)return;
+  lyr.setStyle({weight:3,color:"#0a1e40"});
+  lyr.bringToFront();
+  // Leaflet's default renderer draws vector layers as real SVG <path>
+  // elements, so the same CSS keyframe pulse used before still works --
+  // we just grab the live DOM node via getElement() instead of our own array.
+  const el=lyr.getElement&&lyr.getElement();
+  if(el){el.classList.add("selected","pulse"); setTimeout(()=>el.classList.remove("pulse"),1150);}
 }
 function backToCityMap(){
-  if(st._selectedWardId&&st.wardEls[st._selectedWardId])
-    st.wardEls[st._selectedWardId].forEach(el=>el.classList.remove("selected"));
+  if(st._selectedWardId&&st.wardLayers[st._selectedWardId]){
+    const prev=st.wardLayers[st._selectedWardId];
+    prev.setStyle(wardStyle(prev.feature.properties));
+  }
   st._selectedWardId=null;
-  if(st.cityFullViewBox)tweenViewBox($("#overlay"),parseVB(st.cityFullViewBox),420);
+  if(st.cityFullBounds)st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.5});
   $("#side").classList.add("hidden");
   $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
 }
 async function openWard(id){
   $("#hov").textContent="Loading ward…";
-  const box=wardTargetBox(id);
-  if(box)tweenViewBox($("#overlay"),box,480);   // real pan+zoom: same coord space as the city view
+  const lyr=st.wardLayers[id];
+  if(lyr)st.map.flyToBounds(lyr.getBounds(),{padding:[70,70],maxZoom:16,duration:0.6});   // real geographic fitBounds
   selectWard(id);
   const d=await api(`/api/city/${st.city}/ward/${id}`);st.current=d;
   $("#sepCrumb2").classList.remove("hidden"); $("#crumbWard").classList.remove("hidden");
@@ -720,11 +683,6 @@ function toggleOverview(){
 function closeSide(){
   if(st._selectedWardId){backToCityMap();return;}
   $("#side").classList.add("hidden");
-}
-function zoomBy(factor){
-  const svg=$("#overlay"); const cur=parseVB(svg.getAttribute("viewBox"));
-  const [x,y,w,h]=cur, cx=x+w/2, cy=y+h/2, nw=w*factor, nh=h*factor;
-  tweenViewBox(svg,[cx-nw/2,cy-nh/2,nw,nh],220);
 }
 
 /* ---------------- modals ---------------- */
