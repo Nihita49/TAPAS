@@ -185,7 +185,7 @@ async function renderSideIndia(){
   $("#sidepanel").innerHTML=`<div class="ov-head"><h2>National heat-watch</h2>
     <p style="font-size:12px">Pick a pilot city below or on the map to see its ward-level risk.</p></div>
     <details class="dcard" style="margin:8px 0"><summary><h4>About this model</h4><span class="dcard-teaser">early-warning, not validated</span></summary>
-      <div class="dcard-body"><p style="font-size:12px;color:#23344a;margin:6px 0">A weighted model combining heat hazard, vulnerability, exposure and adaptive capacity. Mortality Risk and Hospitalization Spike come from the same factors via a separate model.</p>
+      <div class="dcard-body"><p style="font-size:12px;color:#23344a;margin:6px 0">A weighted model combining heat hazard, vulnerability, exposure and adaptive capacity.</p>
       <div class="cav"><b>Calibration caveat:</b> V index magnitude, mortality coefficients and any projection/allocation are <b>defensible defaults, not validated</b> &mdash; India publishes no ward-level outcome data. Treat them as early-warning signals.</div></div></details>
     <div id="nwBox"><div class="placeholder">Loading live national heat-watch&hellip;</div></div>`;
   loadWatch(0);
@@ -250,7 +250,8 @@ async function cityTrendCard(city,attempt){
   try{
     const now=Date.now();
     if(!_trendCache||now-_trendCacheTs>120000){_trendCache=await api("/api/trend?days=30");_trendCacheTs=now;}
-    const rows=(_trendCache.series||[]).map(p=>({p,c:(p.cities||[]).find(x=>x.city===city)})).filter(r=>r.c);
+    const cityKey=String(city||"").trim().toLowerCase();
+    const rows=(_trendCache.series||[]).map(p=>({p,c:(p.cities||[]).find(x=>String(x.city||"").trim().toLowerCase()===cityKey)})).filter(r=>r.c);
     if(!rows.length){
       // don't just give up on a blank/slow response -- retry patiently
       // (same pattern as the national watch card) so the chart reliably
@@ -613,8 +614,7 @@ async function preventiveSimCard(){
         <div style="display:flex;gap:4px;align-items:center">${bar(m,"#1467f0")}${bar(h,"#e07bb0")}</div></div>`;
       res.innerHTML=row("Baseline (no measures)",j.baseline.mortality,j.baseline.hospitalisation)
         +(j.waterfall||[]).map(s=>row("+ "+(PS_LABELS[s.measure]||s.measure),s.mort_after,s.hosp_after)).join("")
-        +`<div class="prov" style="margin-top:6px">After all selected measures: Mortality <b>${Math.round(j.adjusted.mortality*1000)/10}%</b> (${esc(j.adjusted.mort_band)}) · Hospitalization Spike <b>${Math.round(j.adjusted.hospitalisation*1000)/10}%</b> (${esc(j.adjusted.hosp_band)}).</div>
-        <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Illustrative scenario — not measured or validated.</b> ${esc(j.disclosure||"")}</div>`;
+        +`<div class="prov" style="margin-top:6px">After all selected measures: Mortality <b>${Math.round(j.adjusted.mortality*1000)/10}%</b> (${esc(j.adjusted.mort_band)}) · Hospitalization Spike <b>${Math.round(j.adjusted.hospitalisation*1000)/10}%</b> (${esc(j.adjusted.hosp_band)}).</div>`;
     }catch(e){res.innerHTML=`<div class="cav">Scenario failed: ${esc(e.message)}</div>`;}
   };
 }
@@ -825,12 +825,17 @@ function closeSide(){
 /* ---------------- modals ---------------- */
 function modal(html){$("#mbody").innerHTML=html;$("#modal").classList.remove("hidden");}
 async function outboxHTML(){const [r,tw]=await Promise.all([api("/api/outbox"),api("/api/twilio/status").catch(()=>({configured:false}))]);
-  const btn=`<div style="margin:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <button class="btn" id="twTest">📨 Send test alert (real Twilio if configured)</button>
-    <span class="hint">${tw.configured?"<b style='color:#157a35'>Twilio configured — sends are REAL</b>":"<b style='color:#b7791f'>Twilio not configured — sends are honestly SIMULATED</b> · set TWILIO_ACCOUNT_SID/AUTH_TOKEN/FROM/TO"}</span></div>
-    <div id="twRes" class="prov"></div>`;
-  const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+btn+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(e.ts)} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
-  setTimeout(()=>{const b=document.getElementById("twTest"); if(b)b.onclick=async()=>{b.disabled=true;try{const r2=await api("/api/alerts/test",{method:"POST"});document.getElementById("twRes").textContent="Result: "+r2.channel_result;}catch(e){document.getElementById("twRes").textContent="Error: "+e.message;}finally{b.disabled=false;}};},0);
+  const note=`<div style="margin:8px 0;font-size:12.5px;color:#23344a">
+    Alerts are sent as SMS/WhatsApp using Twilio. ${tw.configured?"Twilio is configured on this server — sends go out for real.":"Twilio isn't configured on this server, so sends are logged here but not actually delivered."}
+    <div class="prov" style="margin-top:6px">Example of a High/Severe ward alert:</div>
+    <pre style="white-space:pre-wrap;font-size:11.5px;background:#f4f6f9;border-radius:8px;padding:8px 10px;margin-top:4px">[TAPAS ALERT] Ahmedabad 16 Shahibag - Heat escalation: High hazard. HTSI 0.42, UTCI 41.2C. Preventive actions recommended now. Action: Open ward cooling centres
+-- Personal guidance --
+EN: Stay indoors 12-4pm | Drink water every hour | Check on elderly neighbours
+HI: दोपहर 12-4 बजे घर के अंदर रहें | हर घंटे पानी पिएं | बुज़ुर्ग पड़ोसियों का हाल पूछें
+Gujarati: બપોરે 12-4 ઘરની અંદર રહો | દર કલાકે પાણી પીવો | વૃદ્ધ પડોશીઓની ખબર રાખો
+-- EMERGENCY (heatstroke) --
+Signs: high body temp, confusion, no sweating. Call 112/108 now.</pre></div>`;
+  const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+note+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(e.ts)} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
   return html;}
 
 boot().catch(e=>console.error(e));
