@@ -29,10 +29,12 @@ button.pill{background:#fff}
 
 /* simulator: compact LIVE/PREVIEW badge instead of an always-open "not
    live" flag -- avoids language that makes the prototype look unfinished
-   (spec point 9), while keeping the actual +°C slider mechanism intact. */
-.simbar{background:#fff;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;
-  align-items:center;padding:7px 22px;font-size:13px;position:relative}
-.sim-badge{font-weight:800;letter-spacing:.03em;font-size:11px;padding:4px 11px;border-radius:20px}
+   (spec point 9), while keeping the actual +°C slider mechanism intact.
+   Trimmed to a slim bar (smaller padding/font) so it doesn't eat vertical
+   space above the map before the real content starts. */
+.simbar{background:#fff;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;
+  align-items:center;padding:5px 22px;font-size:12px;position:relative}
+.sim-badge{font-weight:800;letter-spacing:.03em;font-size:10px;padding:3px 9px;border-radius:20px}
 .sim-badge.live{background:#e4f7ea;color:#1d7a3c}
 .sim-badge.preview{background:#fff1da;color:#a85c00}
 .sim-pop{position:absolute;top:calc(100% + 4px);left:22px;z-index:15;background:#fff;border:1px solid var(--line);
@@ -84,9 +86,15 @@ path.leaflet-interactive{cursor:pointer;transition:fill-opacity .2s,opacity .25s
 
 /* side / overview -- now a floating on-demand card over the map (spec
    point 1/5/6), not a permanent column. Appears bottom-left for a ward
-   selection, or via the "Overview" toggle for the India/city summary. */
-.side.floating{position:absolute;left:22px;bottom:22px;top:auto;width:336px;max-width:calc(100vw - 60px);
-  max-height:min(66vh,600px);overflow:auto;z-index:8}
+   selection, or via the "Overview" toggle for the India/city summary.
+   Widened + anchored from the top (was bottom-anchored, narrow 336px --
+   which read as cramped and, since the panel grows upward from a fixed
+   bottom edge as content loads in, could leave blank space above the
+   tabs before the true height settled). Anchoring from the top instead
+   gives a fixed, predictable start point right under the map controls. */
+.side.floating{position:absolute;left:22px;top:14px;bottom:auto;width:460px;max-width:calc(100vw - 60px);
+  max-height:calc(100% - 28px);overflow:auto;z-index:8}
+@media(max-width:980px){.side.floating{width:400px}}
 @media(max-width:820px){.side.floating{left:10px;right:10px;width:auto;max-width:none}}
 
 /* ---- collapsible detail card: closed by default, one line to open ---- */
@@ -171,7 +179,7 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 .alert .meta{color:var(--muted);font-size:11px}
 .alert pre{white-space:pre-wrap;margin:4px 0 0;font-family:var(--mono)}
 
-@media(max-width:980px){.side.floating{left:12px;right:12px;bottom:12px;width:auto;max-width:none}}
+@media(max-width:980px){.side.floating{left:12px;right:12px;width:auto;max-width:none}}
 @media(max-width:640px){.top-actions .pill{display:none}}
 
 /* ---- India landing map ---- */
@@ -285,6 +293,13 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
    needed any more. ---- */
 path.leaflet-interactive.dim{opacity:.16!important}
 path.leaflet-interactive.selected{stroke:#0a1e40!important;stroke-width:2.6!important}
+/* Leaflet gives every interactive path tabindex="0" for keyboard access,
+   so the browser draws its own default focus rectangle around the path's
+   bounding box on click -- that's the stray rectangle. The ward's own
+   black selection border (above) already shows what's selected, so the
+   generic browser focus ring is just visual noise on top of it. */
+path.leaflet-interactive{outline:none}
+path.leaflet-interactive:focus{outline:none}
 @keyframes wardPulse{
   0%{stroke-width:.8;stroke:#fff}
   30%{stroke-width:5;stroke:#1467f0}
@@ -293,12 +308,22 @@ path.leaflet-interactive.selected{stroke:#0a1e40!important;stroke-width:2.6!impo
 }
 path.leaflet-interactive.pulse{animation:wardPulse .55s ease-out 2;stroke:#1467f0!important}
 
+/* ---- always-on per-ward number label (spec: show the number on the map
+   itself, not only on hover/click). Centred on the ward via iconAnchor
+   [0,0] + a CSS translate(-50%,-50%) here, so it works for any text
+   length. pointer-events:none lets clicks fall through to the ward
+   polygon underneath. ---- */
+.wardnum-wrap{background:transparent;border:none}
+.wardnum{position:absolute;left:0;top:0;transform:translate(-50%,-50%);
+  pointer-events:none;font-size:11px;font-weight:800;color:#0a1e40;
+  text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 4px #fff,0 1px 1px #fff;white-space:nowrap}
+
 /* map transitions are now real geographic pan/zoom via Leaflet's flyTo/
    fitBounds -- no CSS crossfade trick needed for the India<->City hop. */
 
 /* ---- side panel "drawer" slide when a ward is opened ---- */
 .side{transition:opacity .16s ease-out}
-#sidepanel{transition:transform .22s cubic-bezier(.2,.7,.3,1),opacity .18s;padding:18px}
+#sidepanel{transition:transform .22s cubic-bezier(.2,.7,.3,1),opacity .18s;padding:12px 18px 18px}
 #sidepanel.drawer-in{transform:translateX(0);opacity:1}
 #sidepanel.drawer-enter{transform:translateX(24px);opacity:0}
 
