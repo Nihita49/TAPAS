@@ -85,8 +85,29 @@ path.leaflet-interactive{cursor:pointer;transition:fill-opacity .2s,opacity .25s
 /* side / overview -- now a floating on-demand card over the map (spec
    point 1/5/6), not a permanent column. Appears bottom-left for a ward
    selection, or via the "Overview" toggle for the India/city summary. */
-.side.floating{position:absolute;left:22px;bottom:22px;top:auto;width:380px;max-width:calc(100vw - 60px);
-  max-height:min(72vh,640px);overflow:auto;z-index:8}
+.side.floating{position:absolute;left:22px;bottom:22px;top:auto;width:336px;max-width:calc(100vw - 60px);
+  max-height:min(66vh,600px);overflow:auto;z-index:8}
+@media(max-width:820px){.side.floating{left:10px;right:10px;width:auto;max-width:none}}
+
+/* ---- collapsible detail card: closed by default, one line to open ---- */
+details.dcard{border:1px solid var(--line);border-radius:12px;margin:10px 0;background:#fff;overflow:hidden}
+details.dcard[open]{box-shadow:0 1px 0 rgba(16,35,63,.03) inset}
+details.dcard summary{list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:8px;user-select:none}
+details.dcard summary::-webkit-details-marker{display:none}
+details.dcard summary::before{content:"›";display:inline-block;color:var(--muted);font-weight:700;font-size:15px;
+  transition:transform .15s;flex:none}
+details.dcard[open] summary::before{transform:rotate(90deg)}
+details.dcard summary h4{margin:0;font-size:13.5px;flex:1;min-width:0}
+details.dcard .dcard-teaser{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+details.dcard .dcard-body{padding:0 13px 13px}
+details.dcard[open] summary{border-bottom:1px solid var(--line)}
+
+/* ---- compact "at a glance" summary shown even when everything else is collapsed ---- */
+.glance{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;
+  background:#f6f8fb;border:1px solid var(--line);margin:2px 0 12px}
+.glance .gtxt{flex:1;min-width:0;font-size:12.5px;color:#23344a;line-height:1.45}
+.glance .gtxt b{color:var(--ink)}
+.about-toggle{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .side.floating.hidden{display:none}
 .side-x{position:absolute;top:8px;right:8px;z-index:2;border:none;background:#fff;border-radius:50%;
   width:26px;height:26px;font-size:15px;line-height:1;cursor:pointer;color:var(--muted);box-shadow:var(--shadow)}
