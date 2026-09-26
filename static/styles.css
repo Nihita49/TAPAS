@@ -52,9 +52,9 @@ button.pill{background:#fff}
 
 /* layout: the map is the primary surface (spec point 1) -- the info
    panel is a floating overlay revealed on demand, not a permanent column */
-.wrap{position:relative;padding:14px 22px;min-height:calc(100vh - 108px)}
+.wrap{position:relative;padding:14px 22px}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
-.mappanel.full{display:flex;flex-direction:column;overflow:hidden;height:calc(100vh - 136px)}
+.mappanel.full{display:flex;flex-direction:column;min-height:calc(100vh - 120px)}
 .map-top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
 .crumbs{display:flex;align-items:center;gap:7px}
 .crumb{background:none;border:none;color:var(--accent);font-weight:600;font-size:13px}
@@ -63,7 +63,7 @@ button.pill{background:#fff}
 .seg{display:flex;background:#eef2f7;border-radius:9px;padding:3px}
 .seg button{border:none;background:transparent;padding:5px 12px;border-radius:7px;font-size:12.5px;color:var(--muted)}
 .seg button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.gis{position:relative;flex:1;min-height:0;background:#dfe7ef}
+.gis{position:relative;flex:1;min-height:60vh;background:#dfe7ef}
 #map{position:absolute;inset:0;width:100%;height:100%;z-index:1;background:#e8edf2}
 .leaflet-container{font-family:inherit}
 .leaflet-control-attribution{font-size:10px}
@@ -78,7 +78,6 @@ path.leaflet-interactive{cursor:pointer;transition:fill-opacity .2s,opacity .25s
 .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--line);font-size:12px}
 .legend .cell{display:flex;align-items:center;gap:6px}
 .legend .sw{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.06)}
-.srcnote{padding:0 16px 8px;font-size:11px;color:var(--muted)}
 
 /* colours */
 .cLow{color:var(--low)}.cModerate{color:var(--mod)}.cHigh{color:var(--high)}.cSevere{color:var(--sev)}
@@ -212,19 +211,6 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 #methodPage .t{width:100%;border-collapse:collapse;font-size:12.5px}
 #methodPage .t th,#methodPage .t td{padding:7px 10px;border-bottom:1px solid #edf2f8;text-align:left;vertical-align:top}
 #methodPage .t th{background:#f4f8fd;color:#23405e;font-weight:700}
-
-/* ===== national status bar ===== */
-.statusbar{display:flex;align-items:center;gap:10px;padding:8px 22px;flex-wrap:wrap;
-  background:linear-gradient(90deg,#fff7ec,#fffdf7);border-bottom:1px solid #ffe2c0;
-  font-size:12.5px;color:#7a4b00}
-.statusbar b{color:#10233f}
-.sb-dot{width:9px;height:9px;border-radius:50%;background:#c7d0db;flex:0 0 auto}
-.sb-dot.live{background:#1c7d3f;box-shadow:0 0 0 3px rgba(28,125,63,.16)}
-.sb-dot.mixed{background:#e8a51d;box-shadow:0 0 0 3px rgba(232,165,29,.16)}
-.sb-dot.fallback{background:#c7d0db}
-.sb-btn{margin-left:auto;background:#fff;border:1px solid #ffe2c0;color:#8a4b12;font-size:11.5px}
-.sb-btn:hover{border-color:#eab07a}
-@media(max-width:640px){.sb-btn{display:none}}
 
 /* ===== national watch overview (landing side panel) ===== */
 .nw-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
