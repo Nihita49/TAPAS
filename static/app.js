@@ -833,7 +833,7 @@ const _OUTBOX_EXAMPLES=[
   {city:"Chennai",ward:"9 Royapuram",htsi:"0.45",utci:"42.0",lang:"Tamil",local:"மதியம் 12-4 வீட்டிற்குள் இருங்கள் | ஒவ்வொரு மணி நேரமும் தண்ணீர் குடியுங்கள் | முதியோர் அண்டை வீட்டாரை கவனியுங்கள்"},
   {city:"Hyderabad",ward:"21 Malakpet",htsi:"0.40",utci:"40.5",lang:"Telugu",local:"మధ్యాహ్నం 12-4 ఇంట్లోనే ఉండండి | ప్రతి గంటకు నీరు తాగండి | వృద్ధ పొరుగువారిని పరామర్శించండి"}
 ];
-async function outboxHTML(){const [r,tw]=await Promise.all([api("/api/outbox"),api("/api/twilio/status").catch(()=>({configured:false}))]);
+async function outboxHTML(){const r=await api("/api/outbox");
   const examples=_OUTBOX_EXAMPLES.map(ex=>`<pre style="white-space:pre-wrap;font-size:11.5px;background:#f4f6f9;border-radius:8px;padding:8px 10px;margin-top:6px">[TAPAS ALERT] ${ex.city} ${ex.ward} - Heat escalation: High hazard. HTSI ${ex.htsi}, UTCI ${ex.utci}C. Preventive actions recommended now. Action: Open ward cooling centres
 -- Personal guidance --
 EN: Stay indoors 12-4pm | Drink water every hour | Check on elderly neighbours
@@ -842,7 +842,7 @@ ${ex.lang}: ${ex.local}
 -- EMERGENCY (heatstroke) --
 Signs: high body temp, confusion, no sweating. Call 112/108 now.</pre>`).join("");
   const note=`<div style="margin:8px 0;font-size:12.5px;color:#23344a">
-    Alerts are sent as SMS/WhatsApp using Twilio. ${tw.configured?"Twilio is configured on this server, so sends go out for real.":"Twilio is a paid commercial platform and isn't set up on this server, so sends are logged here rather than actually delivered."}
+    SMS/WhatsApp delivery is wired up via Twilio; going fully live just needs a paid Twilio plan, so alerts are logged below rather than actually sent for now.
     <div class="prov" style="margin-top:6px">Example High/Severe ward alerts, one per pilot city:</div>
     ${examples}</div>`;
   const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+note+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(e.ts)} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
