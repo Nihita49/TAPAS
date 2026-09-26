@@ -18,7 +18,7 @@ const ESRI_GRAY_BASE="https://services.arcgisonline.com/ArcGIS/rest/services/Can
 const ESRI_GRAY_REF="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
 const ESRI_ATTR='Tiles &copy; Esri — Esri, DeLorme, NAVTEQ';
 const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
-  map:null,wardLayers:{},wardLabels:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
+  map:null,wardLayers:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
   cityFullBounds:null,_selectedWardId:null};
 async function api(p,opts){const r=await fetch(p,Object.assign({headers:{"Content-Type":"application/json"}},opts));if(!r.ok)throw new Error((await r.text()).slice(0,140));return r.json();}
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
@@ -34,7 +34,6 @@ function initMap(){
   st.indiaLayer=L.layerGroup().addTo(st.map);
   st.markerLayer=L.layerGroup().addTo(st.map);
   st.wardLayerGroup=L.layerGroup().addTo(st.map);
-  st.wardLabelGroup=L.layerGroup().addTo(st.map);   // always-on numeric labels per ward, see loadWards()
   st.map.on("click",()=>{const d=$("#searchDrop"); if(d)d.classList.add("hidden");});
   // ---- India<->City hierarchy stays aligned with the CAMERA, not just with
   // button clicks: if the person zooms/pinches/scrolls back out to national
@@ -171,7 +170,7 @@ function renderIndia(){
    hand-projected SVG-over-a-static-PNG approach entirely. ---- */
 function renderNationalMap(){
   st.indiaLayer.clearLayers(); st.markerLayer.clearLayers();
-  if(st.wardLayerGroup.getLayers().length)fadeClearLayers([st.wardLayerGroup,st.wardLabelGroup]);   // fade any ward polygons/labels still on screen instead of yanking them out
+  if(st.wardLayerGroup.getLayers().length)fadeClearLayers([st.wardLayerGroup]);   // fade any ward polygons still on screen instead of yanking them out
   const pilotStates=["Maharashtra","Gujarat","Tamil Nadu","Telangana"];
   L.geoJSON(st.india.states,{
     style:f=>{const pilot=pilotStates.includes(f.properties.name);
@@ -348,9 +347,7 @@ async function loadWards(fly=true){
   // comment there) -- only the state-boundary polygons need the graceful fade.
   if(st.indiaLayer.getLayers().length)fadeClearLayers([st.indiaLayer]);
   st.wardLayerGroup.clearLayers();
-  st.wardLabelGroup.clearLayers();
   st.wardLayers={};
-  st.wardLabels={};
   const layer=L.geoJSON({type:"FeatureCollection",features:st.geo},{
     style:f=>wardStyle(f.properties),
     onEachFeature:(f,lyr)=>{
@@ -360,13 +357,6 @@ async function loadWards(fly=true){
       lyr.on("click",()=>openWard(p.id));
       lyr.on("mouseover",()=>{if(st._selectedWardId!==p.id)lyr.setStyle({weight:2.2,color:"#0d1f38"});});
       lyr.on("mouseout",()=>{if(st._selectedWardId!==p.id)lyr.setStyle(wardStyle(p));});
-      // always-visible number on the ward itself -- previously you had to
-      // hover or click to see any value at all, so an unclicked ward just
-      // read as a flat, undifferentiated colour (easy to mistake for "still
-      // loading"). interactive:false lets clicks pass through to the ward
-      // polygon underneath it.
-      const mk=L.marker(lyr.getBounds().getCenter(),{interactive:false,icon:wardLabelIcon(p)}).addTo(st.wardLabelGroup);
-      st.wardLabels[p.id]=mk;
     }
   }).addTo(st.wardLayerGroup);
   st.cityFullBounds=layer.getBounds();
@@ -543,23 +533,10 @@ function wardStyle(p){
   else{const key=st.layer==="mort"?p.mort:st.layer==="hosp"?p.hosp:p.band;f=BCOL[key]||"#999";}
   return {fillColor:f,fillOpacity:0.55,color:"#fff",weight:1};
 }
-function wardLabelIcon(p){
-  return L.divIcon({className:"wardnum-wrap",html:`<span class="wardnum">${esc(wardLabelValue(p))}</span>`,iconSize:[1,1],iconAnchor:[0,0]});
-}
-function wardLabelValue(p){
-  if(!p.available)return "–";
-  if(st.layer==="utci")return p.utci!=null?Math.round(p.utci):"–";
-  if(st.layer==="veg")return p.veg!=null?Math.round(p.veg*100)+"%":"–";
-  if(st.layer==="mort")return p.mort?p.mort[0]:"–";     // L/M/H/S band initial
-  if(st.layer==="hosp")return p.hosp?p.hosp[0]:"–";
-  return p.htsi!=null?p.htsi:"–";                        // default: HTSI layer
-}
 function setLayer(l,silent){st.layer=l;
   document.querySelectorAll("#layers button").forEach(b=>b.classList.toggle("on",b.dataset.l===l));
   if(st.geo){st.geo.forEach(f=>{const p=f.properties,lyr=st.wardLayers[p.id];
     if(lyr&&!silent)lyr.setStyle(wardStyle(p));
-    const mk=st.wardLabels[p.id];
-    if(mk)mk.setIcon(wardLabelIcon(p));
   });}
   renderLegend();}
 function renderLegend(){const lg=$("#legend");
@@ -608,6 +585,9 @@ async function openWard(id){
   if(lyr)st.map.flyToBounds(lyr.getBounds(),{padding:[70,70],maxZoom:16,duration:0.6});   // real geographic fitBounds
   selectWard(id);
   const d=await api(`/api/city/${st.city}/ward/${id}`);st.current=d;
+  $("#hov").textContent=(d.snapshot&&d.snapshot.available)
+    ? `${d.ward.label} · HTSI ${d.snapshot.current.htsi} (${d.snapshot.current.band})`
+    : `${d.ward.label} · Insufficient data`;
   $("#sepCrumb2").classList.remove("hidden"); $("#crumbWard").classList.remove("hidden");
   $("#crumbWard").textContent=d.ward.label;
   const sp=$("#sidepanel"),side=$("#side");
@@ -617,9 +597,6 @@ async function openWard(id){
   wireTabs(sp);
   void sp.offsetWidth;                          // force reflow so the enter->in transition actually plays
   sp.classList.remove("drawer-enter"); sp.classList.add("drawer-in");
-  // preventive-impact projection (scenario)
-  try{const pr=await api(`/api/city/${st.city}/ward/${id}/projection`);
-    if(pr&&pr.available)projectionCard(pr);}catch(e){}
   preventiveSimCard();}
 const PS_LABELS={cooling_centres:"Cooling centres",water_audits:"Water audits",outdoor_work_reschedule:"Outdoor-work rescheduling",welfare_checks:"Welfare checks",grid_energy_notice:"Grid / energy notice"};
 async function preventiveSimCard(){
@@ -653,22 +630,6 @@ async function preventiveSimCard(){
     }catch(e){res.innerHTML=`<div class="cav">Scenario failed: ${esc(e.message)}</div>`;}
   };
 }
-function projectionCard(pr){
-  const holder=document.createElement("div");
-  holder.id="projCard";
-  const rows=pr.scenarios||[];
-  const mkbar=(row)=>{const red=Math.max(0,row.mortality_reduction_pct||0);
-    return `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(row.label)}</span><b>mortality ${red>0?red.toFixed(0)+"% ↓":"no change"}</b></div>
-    <div class="bar"><i style="width:${Math.min(100,red)}%;background:${red>=35?"#2e9e5b":red>=15?"#7fb069":"#c7d0db"}"></i></div>
-    <div style="font-size:10.5px;color:var(--muted)">${esc(row.desc)} · risk ${Math.round(row.mort_before*1000)/10}% → ${Math.round(row.mort_after*1000)/10}% (${esc(row.mort_band_after)})</div></div>`;};
-  holder.innerHTML=dcard("Preventive-impact projection","modelled scenario","",`
-    <p style="font-size:12px;color:#23344a">If adaptive capacity (cooling access / shelters / shade) rises, modelled mortality risk falls. Scenario on the same defensible-default model.</p>
-    ${rows.map(mkbar).join("")}
-    <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Scenario, not measured.</b> ${esc(pr.disclosure||"")}</div>`);
-  const slot=document.getElementById("projSlot");
-  if(slot)slot.appendChild(holder); else $("#sidepanel").appendChild(holder);
-}
-
 function factorBars(s){
   if(!s||!s.factors)return "";
   const f=s.factors;
@@ -742,21 +703,19 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
           <div style="color:#44566e;margin-top:2px"><b>हिं:</b> ${esc(meas.emergency.hi.signs)} ${esc(meas.emergency.hi.call)}</div>
           <div style="color:#44566e;margin-top:2px"><b>${esc(meas.emergency.state_lang_name||"")}:</b> ${esc(meas.emergency.state.signs)} ${esc(meas.emergency.state.call)}</div></div>`:""}</div></div>
     <div id="simAnchor"></div>
-    <div id="projSlot"></div>
   </div>
 
   <div class="wtabpanel hidden" data-p="dt">
-    <div class="card"><h4>Ward environment <span class="hint">real satellite analysis</span></h4>${satBars(env)}
-      <div class="prov">${esc(s.layers.satellite.source)} · <span class="tag sat">satellite</span></div></div>
+    <div class="card"><h4>Ward environment</h4>${satBars(env)}</div>
     <div class="card"><h4>City context</h4><table class="t"><tbody>
       <tr><td>Population (Census 2011)</td><td>${(d.census2011.population).toLocaleString()}</td></tr>
-      <tr><td>Cooling access (this ward)</td><td>${Math.round((s.environment.ac_ward||0)*100)}% <span class="hint">per-ward proxy · city base ${Math.round((s.environment.ac_city||0)*100)}% · ${esc((s.environment.ac_info||{}).green_source||"")} · ${esc(d.ac_ref.basis)}</span></td></tr>
-      <tr><td>Seasonal threshold (this month)</td><td>${c.baseline_90} °C <span class="tag sat">ERA5</span></td></tr></tbody></table></div>
-    <div class="sec">Data layers &amp; last update</div>
+      <tr><td>Cooling access (this ward)</td><td>${Math.round((s.environment.ac_ward||0)*100)}%</td></tr>
+      <tr><td>Seasonal threshold (this month)</td><td>${c.baseline_90} °C</td></tr></tbody></table></div>
+    <div class="sec">Data layers</div>
     <table class="t"><tbody>
-      <tr><td>Weather</td><td>${c.tair} °C</td><td><span class="tag ${s.layers.weather.provenance==="live"?"live":"ref"}">${s.layers.weather.provenance}</span></td><td class="prov">${esc(s.layers.weather.cadence)}</td></tr>
-      <tr><td>Satellite env</td><td>${(env.veg*100)|0}% veg</td><td><span class="tag sat">satellite</span></td><td class="prov">${esc(s.layers.satellite.cadence)}</td></tr>
-      <tr><td>Baseline</td><td>${c.baseline_90} °C</td><td><span class="tag ref">climatology</span></td><td class="prov">${esc(s.layers.baseline.cadence)}</td></tr></tbody></table>
+      <tr><td>Weather</td><td>${c.tair} °C</td><td><span class="tag ${s.layers.weather.provenance==="live"?"live":"ref"}">${s.layers.weather.provenance}</span></td></tr>
+      <tr><td>Satellite env</td><td>${(env.veg*100)|0}% veg</td><td><span class="tag sat">satellite</span></td></tr>
+      <tr><td>Baseline</td><td>${c.baseline_90} °C</td><td><span class="tag ref">climatology</span></td></tr></tbody></table>
   </div>`;
 }
 function wireTabs(scopeEl){
@@ -843,14 +802,12 @@ function forecastCard(fc){if(!fc||!fc.length)return "";
   </tbody></table>
   <div class="prov">OpenWeatherMap hourly · horizon 120 h. Mortality / Hospitalization Spike are risk bands for that day's peak heat, from the same exposure–response model as today (not clinical forecasts).</div>`,true);}
 function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${lab}</span><b>${Math.round(v*100)}%</b></div><div class="bar"><i style="width:${Math.min(100,v*100)|0}%;background:${col}"></i></div></div>`;
-  let s=b("Vegetation / cooling",env.veg,"#2e9e5b")+b("Built / impervious (heat gain)",env.built,"#c26a3a")+b("Water",env.water,"#3a7fd6");
-  // REAL MODIS per-ward values (NASA GIBS), dated and labelled
-  if(env.ndvi_modis!=null) s+=b("NDVI — MODIS Terra 8-day (real)",Math.max(0,env.ndvi_modis),"#237a4b");
+  let s=b("Vegetation",env.veg,"#2e9e5b")+b("Built-up",env.built,"#c26a3a")+b("Water",env.water,"#3a7fd6");
+  if(env.ndvi_modis!=null) s+=b("NDVI",Math.max(0,env.ndvi_modis),"#237a4b");
   if(env.lst_day_c!=null){
-    const anom=env.lst_anom!=null?(env.lst_anom>=0?"+":"")+env.lst_anom+" °C vs city median":"";
-    s+=`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Daytime LST — MODIS Terra (real)</span><b>${env.lst_day_c} °C</b></div><div class="bar"><i style="width:${Math.min(100,Math.max(4,(env.lst_day_c-20)*6))|0}%;background:#b5462f"></i></div><div class="hint">${anom}</div></div>`;}
+    s+=`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Daytime land surface temp</span><b>${env.lst_day_c} °C</b></div><div class="bar"><i style="width:${Math.min(100,Math.max(4,(env.lst_day_c-20)*6))|0}%;background:#b5462f"></i></div></div>`;}
   if(env.lcz!=null)
-    s+=`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Local Climate Zone — WUDAPT (real)</span><b>LCZ ${env.lcz} · ${esc(env.lcz_name||"")}</b></div><div class="bar"><i style="width:${Math.max(4,Math.min(100,Math.round((env.lcz_built_share||0)*100)))}%;background:#8c6bb1"></i></div><div class="hint">built-class share ${(Math.round((env.lcz_built_share||0)*100))}% · Demuzere et al. 2022 global LCZ map, 100 m</div></div>`;
+    s+=`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Local Climate Zone</span><b>LCZ ${env.lcz} · ${esc(env.lcz_name||"")}</b></div><div class="bar"><i style="width:${Math.max(4,Math.min(100,Math.round((env.lcz_built_share||0)*100)))}%;background:#8c6bb1"></i></div></div>`;
   return s;}
 
 /* ---------------- sim ---------------- */
