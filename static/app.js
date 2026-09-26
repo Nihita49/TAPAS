@@ -134,6 +134,7 @@ function renderIndia(){
   $("#filterbar").classList.add("hidden"); $("#filterbar").innerHTML="";
   $("#filterToggle").classList.add("hidden"); $("#simToggle").classList.add("hidden");
   $("#ovBtn").classList.remove("hidden"); $("#ovBtn").textContent="Overview";
+  $("#searchWrap").classList.add("hidden"); $("#searchDrop").classList.add("hidden");
   $("#side").classList.add("hidden"); st._selectedWardId=null;
   $("#crumbRoot").classList.add("cur"); $("#crumbRoot").textContent="India";
   $("#sepCrumb").classList.add("hidden"); $("#crumbCity").classList.add("hidden");
@@ -173,9 +174,11 @@ function renderNationalMap(){
 const _WBAND=["Low","Moderate","High","Severe"];
 const _WCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 async function renderSideIndia(){
-  $("#sidepanel").innerHTML=`<div class="ov-head"><h2>Thermal Assessment &amp; Protection Analytics (TAPAS)</h2>
-    <p><b>A weighted multi-factor model</b> combining heat hazard, vulnerability, exposure and adaptive capacity. <b>Mortality Risk</b> and <b>Hospitalization Spike</b> are computed from the same underlying factors via a separate model. Select a pilot city.</p></div>
-    <div class="cav" style="margin:6px 0"><b>Calibration caveat:</b> V index magnitude, mortality coefficients and any projection/allocation are <b>defensible defaults, not validated</b> &mdash; India publishes no ward-level outcome data. They are early-warning signals.</div>
+  $("#sidepanel").innerHTML=`<div class="ov-head"><h2>National heat-watch</h2>
+    <p style="font-size:12px">Pick a pilot city below or on the map to see its ward-level risk.</p></div>
+    <details class="dcard" style="margin:8px 0"><summary><h4>About this model</h4><span class="dcard-teaser">early-warning, not validated</span></summary>
+      <div class="dcard-body"><p style="font-size:12px;color:#23344a;margin:6px 0">A weighted model combining heat hazard, vulnerability, exposure and adaptive capacity. Mortality Risk and Hospitalization Spike come from the same factors via a separate model.</p>
+      <div class="cav"><b>Calibration caveat:</b> V index magnitude, mortality coefficients and any projection/allocation are <b>defensible defaults, not validated</b> &mdash; India publishes no ward-level outcome data. Treat them as early-warning signals.</div></div></details>
     <div id="nwBox"><div class="placeholder">Loading live national heat-watch&hellip;</div></div>`;
   loadWatch(0);
 }
@@ -222,11 +225,11 @@ function renderWatch(w,mount){
 let _trendCache=null,_trendCacheTs=0;
 async function cityTrendCard(city){
   const sp=$("#sidepanel"); if(!sp)return;
+  const slot=sp.querySelector("#cityTrendSlot");
   const h=document.createElement("div"); h.id="cityTrendBox";
-  const back=[...sp.querySelectorAll("button")].find(x=>x&&x.textContent.includes("Back to India"));
-  if(back)back.parentNode.insertBefore(h,back); else sp.appendChild(h);
+  if(slot)slot.appendChild(h); else sp.appendChild(h);
   const name=cityInfo(city).name;
-  h.innerHTML=`<div class="card"><h4>30-day heat trend <span class="hint">${esc(name)} · archive backfill + live scans</span></h4><div class="prov">Loading…</div></div>`;
+  h.innerHTML=dcard("30-day heat trend",esc(name),"Loading…","<div class='prov'>Loading…</div>",true);
   try{
     const now=Date.now();
     if(!_trendCache||now-_trendCacheTs>120000){_trendCache=await api("/api/trend?days=30");_trendCacheTs=now;}
@@ -239,13 +242,14 @@ async function cityTrendCard(city){
       return `<div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto" title="${esc(tip)}">
         <i style="display:block;width:14px;height:${HO[b]||40}px;background:${_WCOL[b]||"#c7d0db"};border-radius:3px;${live?"":"opacity:.6"}"></i>
         <span style="font-size:9px;color:#6b7c94;margin-top:3px;height:11px">${(i%5===0)?dlabel:""}</span></div>`;}).join("");
-    h.innerHTML=`<div class="card"><h4>30-day heat trend <span class="hint">${esc(name)} · archive backfill + live scans</span></h4>
+    const last=rows[rows.length-1].c.worst||"Low";
+    h.innerHTML=dcard("30-day heat trend",esc(name),`now: ${last}`,`
       <div style="display:flex;align-items:flex-end;gap:5px;height:118px;overflow-x:auto;padding:4px 2px">${bars}</div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:6px;font-size:10.5px;color:#23344a;flex-wrap:wrap">
         ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${_WCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
-        <span style="color:#6b7c94">· opaque = live 417-ward scan · faded = archive backfill · date label every 5th day (hover for detail)</span>
+        <span style="color:#6b7c94">· opaque = live scan · faded = archive backfill</span>
       </div>
-      <div class="prov">Each bar = that day's worst ward band in <b>${esc(name)}</b> only. Same UNVALIDATED default coefficients throughout.</div></div>`;
+      <div class="prov">Each bar = that day's worst ward band in <b>${esc(name)}</b>. Modelled signal, not a validated clinical measure.</div>`,true);
   }catch(e){h.innerHTML="";}
 }
 
@@ -257,6 +261,7 @@ async function openCity(id){
   $("#layers").classList.remove("hidden");
   $("#filterToggle").classList.remove("hidden"); $("#simToggle").classList.remove("hidden");
   $("#ovBtn").textContent="City overview";
+  $("#searchWrap").classList.remove("hidden");
   $("#side").classList.add("hidden");
   $("#crumbRoot").classList.remove("cur"); $("#crumbRoot").textContent="‹ India";
   $("#sepCrumb").classList.remove("hidden"); $("#crumbCity").classList.remove("hidden");
@@ -264,11 +269,19 @@ async function openCity(id){
   $("#sepCrumb2").classList.add("hidden"); $("#crumbWard").classList.add("hidden");
   updateSearchPlaceholder();
   const [lon,lat]=cityInfo(id).centre;
-  st.map.flyTo([lat,lon],12,{duration:1.1});   // real geographic fly-to; fitBounds below tightens to the exact ward extent once loaded
-  await loadWards();
+  // ---- one continuous zoom into the city, not two competing animations ----
+  // Start heading toward the city immediately for instant feedback, fetch the
+  // ward data in parallel, then let a single final flyToBounds smoothly
+  // redirect that same flight onto the exact ward extent once it's known.
+  // Leaflet blends a new flyTo target into an animation already in progress,
+  // so this reads as one continuous zoom-in on the place clicked, rather
+  // than a jump followed by an unrelated re-zoom.
+  st.map.flyTo([lat,lon],12,{duration:0.9});
+  await loadWards(false);
+  if(st.cityFullBounds)st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.9});
 }
 const _geomCache={}; // city -> {id: geometry}, fetched once per city (static, never changes)
-async function loadWards(){
+async function loadWards(fly=true){
   if(!_geomCache[st.city]){
     const g=await api(`/api/city/${st.city}/geometry`);
     const m={}; (g.features||[]).forEach(f=>{m[f.id]=f.geometry;});
@@ -293,7 +306,7 @@ async function loadWards(){
     }
   }).addTo(st.wardLayerGroup);
   st.cityFullBounds=layer.getBounds();
-  st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.6});   // snap to the real ward extent
+  if(fly)st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.6});   // snap to the real ward extent — skipped on data-only refreshes
 
   setLayer(st.layer,true);
   renderFilterBar(); applyFilterDim();
@@ -336,30 +349,49 @@ async function allocationCard(city){
     const rows=(a.rows||[]).filter(r=>r.priority_score>0).slice(0,6);
     const bcol=r=>r.mort_band==="Severe"?"#dd3a3a":r.mort_band==="High"?"#f0722c":r.mort_band==="Moderate"?"#e8a51d":"#2e9e5b";
     const h=document.createElement("div");h.id="allocCard";
-    h.innerHTML=`<div class="card"><h4>Resource allocation <span class="hint">top at-risk wards</span></h4>
+    h.innerHTML=dcard("Resource allocation","top at-risk wards",`${rows.length} flagged`,`
       <table class="t"><thead><tr><th>Ward</th><th>Mort</th><th>Score</th><th>Share</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${esc(r.ward)}</td><td><span class="badge bg${r.mort_band}" style="font-size:10px">${r.mort_band}</span></td>
         <td>${r.priority_score}</td><td>${r.share_pct}%</td></tr>`).join("")||`<tr><td colspan="4">No wards currently elevated (all Low risk).</td></tr>`}
       </tbody></table>
-      <div class="prov">Ranked by modelled HTSI &amp; mortality priority score. Deployment illustrative — not an audited plan. ${esc(a.disclosure||"")}</div></div>`;
+      <div class="prov">Ranked by modelled HTSI &amp; mortality priority score. Deployment illustrative — not an audited plan. ${esc(a.disclosure||"")}</div>`);
     const sp=$("#sidepanel");
-    // put allocation after city forecast/outlook cards, before back button
-    const back=[...sp.querySelectorAll("button")].find(x=>x&&x.textContent.includes("Back to India"));
-    if(back)back.parentNode.insertBefore(h,back);
+    const slot=sp.querySelector("#allocSlot");
+    if(slot)slot.appendChild(h);
     else sp.appendChild(h);
   }catch(e){}
 }
 
+function cityWorstBand(agg){
+  if(!agg||!agg.distribution)return null;
+  const dist=agg.distribution.mortality||{};
+  for(const b of ["Severe","High","Moderate","Low"])if(dist[b])return b;
+  return null;
+}
 function renderSideCity(){const c=cityInfo(st.city);
-  $("#sidepanel").innerHTML=`<div class="ov-head"><h2>${esc(c.name)} — ward map</h2>
-    <p>${c.n_wards} municipal wards · Census 2011 population ${(c.census2011.population/1e6).toFixed(1)} M.</p>
-    <p style="font-size:12px">Use the view buttons above the map to colour wards by <b>HTSI</b>, <b>Mortality Risk</b>, Hospitalization Spike, UTCI heat-stress, or satellite vegetation. Click a ward for its full profile &amp; the two risk outputs (separate logistics on the shared weighted factors).</p></div>
-    ${cityForecastCards(st.agg,c)}
+  const worst=cityWorstBand(st.agg);
+  const glance=worst?`<div class="glance"><span class="badge bg${worst}">${worst}</span>
+      <div class="gtxt">Worst ward band right now is <b>${worst}</b>. <b>${c.n_wards}</b> wards · pop. ${(c.census2011.population/1e6).toFixed(1)} M.</div></div>`
+    :`<div class="glance"><div class="gtxt"><b>${c.n_wards}</b> wards · pop. ${(c.census2011.population/1e6).toFixed(1)} M. Loading current risk…</div></div>`;
+  $("#sidepanel").innerHTML=`<div class="ov-head"><h2>${esc(c.name)}</h2></div>
+    ${glance}
+    <div class="wtabs">
+      <button class="wtab on" data-t="ov">Overview</button>
+      <button class="wtab" data-t="tr">30-day trend</button>
+      <button class="wtab" data-t="fc">5-day forecast</button>
+      <button class="wtab" data-t="ac">Actions</button>
+    </div>
+    <div class="wtabpanel" data-p="ov">${cityOverviewTab(st.agg)}
+      <p style="font-size:11.5px;color:var(--muted);margin-top:10px">Use the buttons above the map to colour wards by HTSI, Mortality, Hospitalization Spike, UTCI or vegetation. Click any ward for its full profile.</p></div>
+    <div class="wtabpanel hidden" data-p="tr"><div id="cityTrendSlot"></div></div>
+    <div class="wtabpanel hidden" data-p="fc">${cityForecastTab(st.agg)}</div>
+    <div class="wtabpanel hidden" data-p="ac">${cityActionsTab(st.agg,c)}<div id="allocSlot"></div></div>
     <div class="ov-grid"><button class="btn ghost" id="openCityWardHint" style="width:100%">Back to India</button></div>`;
   $("#sidepanel").querySelector("#openCityWardHint").onclick=()=>goIndia();
+  wireTabs($("#sidepanel"));
 }
-function cityForecastCards(agg,c){
-  if(!agg||!agg.distribution)return "";
+function cityOverviewTab(agg){
+  if(!agg||!agg.distribution)return `<div class="prov">Loading…</div>`;
   const dist=agg.distribution.mortality||{};
   const total=Object.values(dist).reduce((a,b)=>a+b,0)||1;
   const LAY=["Low","Moderate","High","Severe"];
@@ -367,19 +399,21 @@ function cityForecastCards(agg,c){
   const distSvg=`<svg viewBox="0 0 300 ${barH}" style="width:100%">`+
     LAY.map((k,i)=>{const v=dist[k]||0;const f=v/total;const x=14+i*70+8;return `<rect x="${x}" y="${barH-18-(f*barH-22)}" width="46" height="${Math.max(3,f*barH-22)}" rx="3" fill="${BCOL[k]}" opacity="0.85"><title>${k}: ${v}</title></rect><text x="${x+23}" y="${barH-18-(f*barH-22)-5}" text-anchor="middle" font-size="10" font-weight="700" fill="${BCOL[k]}">${v}</text><text x="${x+23}" y="${barH-5}" text-anchor="middle" font-size="8.5" fill="#6b7c94">${k}</text>`;}).join("")+
     `</svg>`;
+  return `<div class="prov">Wards by Mortality-risk band right now:</div>${distSvg}
+    <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">${total} wards · live weather + real satellite environment.</div>`;
+}
+function cityForecastTab(agg){
+  if(!agg||!agg.distribution)return `<div class="prov">Loading…</div>`;
   const outlook=(agg.outlook||[]).map(p=>({lab:shortDay(p.day),mort:p.mortality_prob,hosp:p.hosp_prob}));
   const fwd=outlook.length?outlookLine(outlook):"";
-  const mcol=p=>p<0.06?"#2e9e5b":p<0.22?"#e8a51d":p<0.45?"#f0722c":"#dd3a3a";
-  return `<div class="card"><h4>City Mortality outlook <span class="hint">${esc(c.name)} · from the shared risk engine</span></h4>
-    <div class="prov">Wards by Mortality-risk band right now:</div>
-    ${distSvg}
-    <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">${total} wards · based on live weather + real satellite environment.</div>
-    <div class="prov" style="margin-top:6px">5-day forward outlook (city-wide mean risk):</div>
-    ${fwd||`<div class="prov">Forecast data warming up — check back shortly.</div>`}
-  </div>
-  <div class="card" style="border-left:4px solid #1467f0"><h4>Administrative preventive measures <span class="hint">${esc(c.name)} · level ${esc(agg.alert_level)}</span></h4>
-    <ul style="margin:6px 0;padding-left:18px">${(agg.admin_measures||[]).map(m=>`<li style="font-size:13px;line-height:1.55;margin:5px 0">${esc(m)}</li>`).join("")}</ul>
-    <div class="prov">Two-tier response modelled on the Ahmedabad Heat Action Plan. Administration measures shown here; resident SMS guidance is set per ward (click a ward).</div></div>`;
+  return `<div class="prov">City-wide mean risk, next 5 days:</div>
+    ${fwd||`<div class="prov">Forecast data warming up — check back shortly.</div>`}`;
+}
+function cityActionsTab(agg,c){
+  if(!agg)return `<div class="prov">Loading…</div>`;
+  return `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Alert level: <b>${esc(agg.alert_level||"—")}</b></div>
+  <ul style="margin:6px 0;padding-left:18px">${(agg.admin_measures||[]).map(m=>`<li style="font-size:13px;line-height:1.55;margin:5px 0">${esc(m)}</li>`).join("")}</ul>
+  <div class="prov">Two-tier response modelled on the Ahmedabad Heat Action Plan. Resident SMS guidance is set per ward (click a ward).</div>`;
 }
 function outlookLine(pts){
   const W=300,H=120,padL=8,padB=20,padT=14,padR=8;
@@ -474,11 +508,12 @@ async function preventiveSimCard(){
   let w; try{w=await api("/api/weights");}catch(e){return;}
   const keys=Object.keys(w.measure_effects||{}); if(!keys.length)return;
   const holder=document.createElement("div"); holder.id="prevSimCard";
-  holder.innerHTML=`<div class="card" style="border-left:4px solid #2e9e5b"><h4>Preventive-measures simulator <span class="hint">interactive scenario</span></h4>
-    <p style="font-size:12px;color:#23344a">Tick the measures you would activate for this ward and press Apply — the model shows the step-by-step step-down in Mortality risk and Hospitalization Spike.</p>
+  holder.innerHTML=dcard("🧪 Preventive-measures simulator","try it",`${keys.length} measures`,`
+    <p style="font-size:12px;color:#23344a">Tick the measures you'd put in place for this ward and press Apply — see how much lower Mortality risk and Hospitalization risk could go.</p>
     ${keys.map(k=>`<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0;cursor:pointer"><input type="checkbox" data-m="${k}"> ${PS_LABELS[k]||k}</label>`).join("")}
     <button class="btn" id="psApply" style="margin-top:8px">Apply selected measures</button>
-    <div id="psRes" style="margin-top:8px"></div></div>`;
+    <div id="psRes" style="margin-top:8px"></div>`,true);
+  holder.querySelector("details").style.borderLeft="4px solid #2e9e5b";
   const sp=$("#sidepanel"),an=sp.querySelector("#simAnchor");
   if(an)an.before(holder); else sp.appendChild(holder);
   holder.querySelector("#psApply").onclick=async()=>{
@@ -507,10 +542,10 @@ function projectionCard(pr){
     return `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(row.label)}</span><b>mortality ${red>0?red.toFixed(0)+"% ↓":"no change"}</b></div>
     <div class="bar"><i style="width:${Math.min(100,red)}%;background:${red>=35?"#2e9e5b":red>=15?"#7fb069":"#c7d0db"}"></i></div>
     <div style="font-size:10.5px;color:var(--muted)">${esc(row.desc)} · risk ${Math.round(row.mort_before*1000)/10}% → ${Math.round(row.mort_after*1000)/10}% (${esc(row.mort_band_after)})</div></div>`;};
-  holder.innerHTML=`<div class="card" style="border-left:4px solid #2e9e5b"><h4>Preventive-impact projection <span class="hint">scenario</span></h4>
+  holder.innerHTML=dcard("Preventive-impact projection","modelled scenario","auto-generated",`
     <p style="font-size:12px;color:#23344a">If adaptive capacity (cooling access / shelters / shade) rises, modelled mortality risk falls. Scenario on the same defensible-default model.</p>
     ${rows.map(mkbar).join("")}
-    <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Scenario, not measured.</b> ${esc(pr.disclosure||"")}</div></div>`;
+    <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Scenario, not measured.</b> ${esc(pr.disclosure||"")}</div>`);
   const slot=document.getElementById("projSlot");
   if(slot)slot.appendChild(holder); else $("#sidepanel").appendChild(holder);
 }
@@ -521,13 +556,14 @@ function factorBars(s){
   const row=(lab,v,col,src)=>`<div class="fbarrow"><span class="fblab" title="${esc(src)}">${lab}</span>
     <div class="bar"><i style="width:${Math.round(Math.min(1,Math.max(0,v))*100)}%;background:${col}"></i></div>
     <span class="fbval">${v.toFixed(2)}</span></div>`;
-  return `<div class="factorbars">
+  const body=`<div class="factorbars">
     ${row("Hazard",f.H,"#dd3a3a","ERA5 anomaly + UTCI")}
     ${row("Exposure",f.E,"#f0722c","satellite + MODIS LST")}
     ${row("Vulnerability",f.V,"#7a4b00","Census 2011 · kutcha per ward")}
     ${row("Adaptive Cap.",f.AC,"#2e9e5b","per-ward proxy")}
   </div>
   <div class="fmeta">V index <b>${(f.v_index*100).toFixed(0)}</b> · confidence <b>${Math.round(f.confidence*100)}%</b>${(f.v_pending&&f.v_pending.length)?` · <span style="color:#b7791f">pending: ${esc(f.v_pending.join(", "))}</span>`:""}</div>`;
+  return `<details class="dcard" style="margin:8px 0 4px"><summary><h4 style="font-size:12.5px">How this risk was calculated</h4><span class="dcard-teaser">4 factors</span></summary><div class="dcard-body">${body}</div></details>`;
 }
 function wardHTML(d){const s=d.snapshot,w=d.ward;
   if(!s||!s.available)return `<div class="w-head"><h2>Ward ${esc(w.label)}</h2></div><p>Insufficient data.</p>`;
@@ -560,13 +596,14 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
     <div class="card"><h4>Output 2 · Hospitalization Spike</h4>
       ${s.hospitalisation?mk(s.hospitalisation,"Hospitalization Spike"):""}</div>
     ${mortChart(s)}
-    <div class="kpis">
-      ${kpi("UTCI","",c.utci!=null?c.utci+" °C":"Insufficient")}
+    <details class="dcard" style="margin:8px 0"><summary><h4 style="font-size:12.5px">More numbers</h4><span class="dcard-teaser">temp, pop.</span></summary>
+      <div class="dcard-body"><div class="kpis">
+      ${kpi("UTCI",c.utci!=null?c.utci+" °C":"Insufficient")}
       ${kpi("Air temp",c.tair!=null?c.tair+" °C":"—")}
       ${kpi("Day max",c.daymax!=null?c.daymax+" °C":"—")}
       ${kpi("vs city normal",c.anom!=null?(c.anom>=0?"+":"")+c.anom+" °C":"—")}
       ${kpi("Pop. 2011 (city)",(d.census2011.population/1e6).toFixed(1)+" M")}
-    </div>
+    </div></div></details>
     ${c.sim_active?`<div class="cav">Under the labelled heatwave preview (not live). Reset to see today's real conditions.</div>`:""}
   </div>
 
@@ -610,6 +647,12 @@ function wireTabs(scopeEl){
   });
 }
 function kpi(k,v){return `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`;}
+/* ---- collapsed-by-default section: a one-line summary the person can tap
+   to reveal the fuller detail underneath, instead of every card dumping
+   all its numbers on screen at once. `open` defaults to false. ---- */
+function dcard(title,hint,teaser,bodyHtml,open){
+  return `<details class="card dcard"${open?" open":""}><summary><h4>${title}${hint?` <span class="hint">${hint}</span>`:""}</h4>${teaser?`<span class="dcard-teaser">${teaser}</span>`:""}</summary><div class="dcard-body">${bodyHtml}</div></details>`;
+}
 function mortChart(s){
   const cur=s.mortality,fc=s.forecast||[];
   if(!cur)return "";
@@ -644,7 +687,9 @@ function mortChart(s){
     </div></div></div>`;}
 function shortDay(day){const m=(day||"").match(/[A-Za-z]{3} \d{1,2} \w{3}/);return m?day.split(" ")[0]:day;}
 
-function forecastCard(fc){if(!fc||!fc.length)return "";return `<div class="card"><h4>5-day heat forecast <span class="hint">confidence degrades after day 3</span></h4>
+function forecastCard(fc){if(!fc||!fc.length)return "";
+  const worst=fc.reduce((a,f)=>(_WBAND.indexOf(f.band)>_WBAND.indexOf(a.band)?f:a),fc[0]);
+  return dcard("5-day forecast","confidence degrades after day 3",`worst: ${worst.day} · ${worst.band}`,`
   <table class="t"><thead><tr><th>Day</th><th>Peak HTSI</th><th>Peak UTCI</th><th>HTSI band</th><th>Mortality</th><th>Hosp. Spike</th><th>Confidence</th></tr></thead><tbody>
   ${fc.map(f=>`<tr><td>${esc(f.day)}</td><td>${f.peak_htsi}</td><td>${f.peak_utci} °C</td>
     <td><span class="badge bg${f.band}" style="font-size:10px">${f.band}</span></td>
@@ -652,7 +697,7 @@ function forecastCard(fc){if(!fc||!fc.length)return "";return `<div class="card"
     <td>${f.hosp_prob!=null?`<span class="badge bg${f.peak_hosp_band}" style="font-size:10px">${f.peak_hosp_band}</span><span class="hint">${Math.round(f.hosp_prob*100)}%</span>`:"—"}</td>
     <td><span class="conf"><span class="bar"><i style="width:${(f.confidence*100)|0}%;background:${f.confidence<0.62?"#f0722c":"#1467f0"}"></i></span></span>${Math.round(f.confidence*100)}%</td></tr>`).join("")}
   </tbody></table>
-  <div class="prov">OpenWeatherMap hourly · horizon 120 h. Mortality / Hospitalization Spike are risk bands for that day's peak heat, from the same exposure–response model as today (not clinical forecasts).</div></div>`;}
+  <div class="prov">OpenWeatherMap hourly · horizon 120 h. Mortality / Hospitalization Spike are risk bands for that day's peak heat, from the same exposure–response model as today (not clinical forecasts).</div>`,true);}
 function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${lab}</span><b>${Math.round(v*100)}%</b></div><div class="bar"><i style="width:${Math.min(100,v*100)|0}%;background:${col}"></i></div></div>`;
   let s=b("Vegetation / cooling",env.veg,"#2e9e5b")+b("Built / impervious (heat gain)",env.built,"#c26a3a")+b("Water",env.water,"#3a7fd6");
   // REAL MODIS per-ward values (NASA GIBS), dated and labelled
@@ -666,7 +711,7 @@ function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style
 
 /* ---------------- sim ---------------- */
 async function applySim(){const off=parseInt($("#simRange").value,10)||0;const btn=$("#simApply");btn.disabled=true;
-  try{await api("/api/sim",{method:"POST",body:JSON.stringify({offset:off})});updateSimBadge(off);if(st.city)await loadWards();}catch(e){$("#hov").textContent="sim error "+e.message;}finally{btn.disabled=false;}}
+  try{await api("/api/sim",{method:"POST",body:JSON.stringify({offset:off})});updateSimBadge(off);if(st.city)await loadWards(false);}catch(e){$("#hov").textContent="sim error "+e.message;}finally{btn.disabled=false;}}
 function updateSimBadge(off){
   const b=$("#simBadge");
   if(off>0){b.textContent="PREVIEW +"+off+"°C";b.className="sim-badge preview";}
