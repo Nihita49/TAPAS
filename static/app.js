@@ -35,6 +35,22 @@ function initMap(){
   st.markerLayer=L.layerGroup().addTo(st.map);
   st.wardLayerGroup=L.layerGroup().addTo(st.map);
   st.map.on("click",()=>{const d=$("#searchDrop"); if(d)d.classList.add("hidden");});
+  // ---- India<->City hierarchy stays aligned with the CAMERA, not just with
+  // button clicks: if the person zooms/pinches/scrolls back out to national
+  // level themselves (rather than clicking the "India" breadcrumb), restore
+  // the national view + city markers automatically instead of leaving them
+  // stuck on the city they'd zoomed into with nothing else visible. ----
+  st.map.on("zoomend",()=>{
+    if(st.view==="city"&&st.map.getZoom()<=INDIA_ZOOM+1)goIndia();
+  });
+}
+/* ---- fade a layer group's vector paths out, then clear it -- avoids the
+   abrupt "everything vanishes to blank basemap" flash that used to happen
+   when india/city layers were cleared synchronously mid-flyTo. ---- */
+function fadeClearLayers(groups,ms=380){
+  groups.forEach(g=>g.eachLayer(l=>{const el=l.getElement&&l.getElement();
+    if(el){el.style.transition=`opacity ${ms}ms ease`; el.style.opacity=0;}}));
+  setTimeout(()=>groups.forEach(g=>g.clearLayers()),ms);
 }
 
 
@@ -58,6 +74,7 @@ async function boot(){
     document.querySelectorAll("#layers button").forEach(b=>b.onclick=()=>setLayer(b.dataset.l));
     $("#ovBtn").onclick=()=>toggleOverview();
     $("#filterToggle").onclick=()=>{$("#filterbar").classList.toggle("hidden");};
+    wireFilterDrag();
     $("#sideClose").onclick=()=>closeSide();
     $("#zIn").onclick=()=>st.map.zoomIn(); $("#zOut").onclick=()=>st.map.zoomOut();
     $("#zHome").onclick=()=>goIndia();
@@ -151,7 +168,8 @@ function renderIndia(){
    circleMarkers at each city's real [lon,lat] centre. Replaces the old
    hand-projected SVG-over-a-static-PNG approach entirely. ---- */
 function renderNationalMap(){
-  st.indiaLayer.clearLayers(); st.markerLayer.clearLayers(); st.wardLayerGroup.clearLayers();
+  st.indiaLayer.clearLayers(); st.markerLayer.clearLayers();
+  if(st.wardLayerGroup.getLayers().length)fadeClearLayers([st.wardLayerGroup]);   // fade any ward polygons still on screen instead of yanking them out
   const pilotStates=["Maharashtra","Gujarat","Tamil Nadu","Telangana"];
   L.geoJSON(st.india.states,{
     style:f=>{const pilot=pilotStates.includes(f.properties.name);
@@ -244,7 +262,7 @@ async function cityTrendCard(city){
         <span style="font-size:9px;color:#6b7c94;margin-top:3px;height:11px">${(i%5===0)?dlabel:""}</span></div>`;}).join("");
     const last=rows[rows.length-1].c.worst||"Low";
     h.innerHTML=dcard("30-day heat trend",esc(name),`now: ${last}`,`
-      <div style="display:flex;align-items:flex-end;gap:5px;height:118px;overflow-x:auto;padding:4px 2px">${bars}</div>
+      <div style="display:flex;align-items:flex-end;gap:5px;height:150px;overflow-x:auto;padding:6px 2px">${bars}</div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:6px;font-size:10.5px;color:#23344a;flex-wrap:wrap">
         ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${_WCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
         <span style="color:#6b7c94">· opaque = live scan · faded = archive backfill</span>
@@ -292,7 +310,13 @@ async function loadWards(fly=true){
   st.geo=d.features.map(f=>({...f,geometry:gc[f.properties.id]||f.geometry}));
   st.mapmeta=d.mapmeta;st.sim=d.sim;st.agg=d.aggregate||null;
 
-  st.indiaLayer.clearLayers(); st.markerLayer.clearLayers(); st.wardLayerGroup.clearLayers();
+  // fade the national state-boundary/city-marker layers out instead of
+  // clearing them synchronously -- clearing them the instant a city is
+  // clicked (while the flyTo animation is still mid-flight) was what made
+  // the marker "turn white": the layers vanished onto a bare basemap before
+  // the zoom had actually arrived anywhere.
+  if(st.indiaLayer.getLayers().length||st.markerLayer.getLayers().length)fadeClearLayers([st.indiaLayer,st.markerLayer]);
+  st.wardLayerGroup.clearLayers();
   st.wardLayers={};
   const layer=L.geoJSON({type:"FeatureCollection",features:st.geo},{
     style:f=>wardStyle(f.properties),
@@ -319,22 +343,58 @@ async function loadWards(fly=true){
 /* ---- city-level severity filter (Low/Moderate/High/Severe pills). Dims
    (not hides) non-matching wards so spatial context is preserved. Counts
    are recomputed from the live `st.geo` on every render/refresh. ---- */
+/* ---- vertical filter sidebar (Low/Moderate/High/Severe). Semantics: start
+   with everything visible; clicking a band ISOLATES the map to just that
+   band (not a toggle-hide -- clicking Moderate used to remove it from the
+   visible set, which read as "the band you clicked disappears"). Clicking
+   the already-isolated band, or "Show all", restores every band. ---- */
 function renderFilterBar(){
   const fb=$("#filterbar");
   if(st.view!=="city"){fb.classList.add("hidden");fb.innerHTML="";return;}
   const bands=["Low","Moderate","High","Severe"];
   const counts={Low:0,Moderate:0,High:0,Severe:0};
   (st.geo||[]).forEach(f=>{const b=f.properties.band;if(counts[b]!=null)counts[b]++;});
-  fb.innerHTML=bands.map(b=>{
-    const on=st.filterBands.has(b);
-    return `<div class="fchip${on?" on":""}" data-b="${b}" style="${on?`background:${_WCOL[b]};border-color:${_WCOL[b]}`:""}">
-      <span class="dot" style="background:${on?"#fff":_WCOL[b]}"></span>${b} <span class="cnt">${counts[b]}</span></div>`;
-  }).join("");
-  fb.querySelectorAll(".fchip").forEach(ch=>ch.onclick=()=>{
+  const allOn=st.filterBands.size===bands.length;
+  fb.innerHTML=`<div class="filterbar-head"><span class="filterbar-grip" title="Drag to move">⠿⠿</span>Risk filter
+      <button class="filterbar-x" id="filterClose" title="Close">×</button></div>
+    <div class="filterbar-list">
+    <div class="fchip fchip-all${allOn?" on":""}" data-all="1">Show all</div>
+    ${bands.map(b=>{
+      const on=st.filterBands.has(b);
+      return `<div class="fchip${on?" on":""}" data-b="${b}" style="${on?`background:${_WCOL[b]};border-color:${_WCOL[b]}`:""}">
+        <span class="dot" style="background:${on?"#fff":_WCOL[b]}"></span>${b} <span class="cnt">${counts[b]}</span></div>`;
+    }).join("")}
+    </div>`;
+  fb.querySelector("#filterClose").onclick=()=>fb.classList.add("hidden");
+  fb.querySelector(".fchip-all").onclick=()=>{st.filterBands=new Set(bands);renderFilterBar();applyFilterDim();};
+  fb.querySelectorAll(".fchip[data-b]").forEach(ch=>ch.onclick=()=>{
     const b=ch.dataset.b;
-    if(st.filterBands.has(b))st.filterBands.delete(b); else st.filterBands.add(b);
+    if(st.filterBands.size===1&&st.filterBands.has(b))st.filterBands=new Set(bands);   // click the isolated band again -> show all
+    else st.filterBands=new Set([b]);                                                  // isolate to just this band
     renderFilterBar(); applyFilterDim();
   });
+}
+/* ---- makes the filter sidebar a draggable floating panel (spec point 2).
+   Bound once, via delegation on the never-replaced #filterbar element (its
+   innerHTML gets rebuilt on every toggle, but the element itself doesn't),
+   so this never needs re-wiring after a re-render. ---- */
+function wireFilterDrag(){
+  const fb=$("#filterbar"); if(!fb)return;
+  let dragging=false,ox=0,oy=0;
+  fb.addEventListener("mousedown",e=>{
+    if(!e.target.closest(".filterbar-grip"))return;
+    const r=fb.getBoundingClientRect();
+    fb.style.position="fixed"; fb.style.left=r.left+"px"; fb.style.top=r.top+"px";
+    fb.style.right="auto"; fb.style.bottom="auto";
+    ox=e.clientX-r.left; oy=e.clientY-r.top; dragging=true;
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove",e=>{
+    if(!dragging)return;
+    fb.style.left=Math.max(4,Math.min(window.innerWidth-40,e.clientX-ox))+"px";
+    fb.style.top=Math.max(4,Math.min(window.innerHeight-40,e.clientY-oy))+"px";
+  });
+  document.addEventListener("mouseup",()=>dragging=false);
 }
 function applyFilterDim(){
   (st.geo||[]).forEach(f=>{
@@ -458,11 +518,18 @@ function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px s
 function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Real GIS map: Leaflet + Esri Light Gray basemap, real ward boundaries (${c.boundary_source||"municipal wards"}). Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
 
 /* ================= WARD ================= */
+function deselectWard(id){
+  // resetting the Leaflet path style alone isn't enough -- the black
+  // border/highlight is actually driven by the CSS ".selected" class added
+  // in selectWard(), and setStyle() never removes CSS classes, so the
+  // previous ward kept its highlight until the class itself was stripped.
+  const lyr=st.wardLayers[id]; if(!lyr)return;
+  lyr.setStyle(wardStyle(lyr.feature.properties));
+  const el=lyr.getElement&&lyr.getElement();
+  if(el)el.classList.remove("selected","pulse");
+}
 function selectWard(id){
-  if(st._selectedWardId&&st.wardLayers[st._selectedWardId]){
-    const prev=st.wardLayers[st._selectedWardId];
-    prev.setStyle(wardStyle(prev.feature.properties));
-  }
+  if(st._selectedWardId&&st._selectedWardId!==id)deselectWard(st._selectedWardId);
   st._selectedWardId=id;
   const lyr=st.wardLayers[id]; if(!lyr)return;
   lyr.setStyle({weight:3,color:"#0a1e40"});
@@ -474,10 +541,7 @@ function selectWard(id){
   if(el){el.classList.add("selected","pulse"); setTimeout(()=>el.classList.remove("pulse"),1150);}
 }
 function backToCityMap(){
-  if(st._selectedWardId&&st.wardLayers[st._selectedWardId]){
-    const prev=st.wardLayers[st._selectedWardId];
-    prev.setStyle(wardStyle(prev.feature.properties));
-  }
+  if(st._selectedWardId)deselectWard(st._selectedWardId);
   st._selectedWardId=null;
   if(st.cityFullBounds)st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.5});
   $("#side").classList.add("hidden");
@@ -608,9 +672,8 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
   </div>
 
   <div class="wtabpanel hidden" data-p="fc">
+    ${wardTrendChart(s)}
     ${forecastCard(s.forecast)}
-    <div id="simAnchor"></div>
-    <div id="projSlot"></div>
   </div>
 
   <div class="wtabpanel hidden" data-p="gd">
@@ -623,6 +686,8 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
           <div><b>EN:</b> ${esc(meas.emergency.en.signs)} ${esc(meas.emergency.en.call)}</div>
           <div style="color:#44566e;margin-top:2px"><b>हिं:</b> ${esc(meas.emergency.hi.signs)} ${esc(meas.emergency.hi.call)}</div>
           <div style="color:#44566e;margin-top:2px"><b>${esc(meas.emergency.state_lang_name||"")}:</b> ${esc(meas.emergency.state.signs)} ${esc(meas.emergency.state.call)}</div></div>`:""}</div></div>
+    <div id="simAnchor"></div>
+    <div id="projSlot"></div>
   </div>
 
   <div class="wtabpanel hidden" data-p="dt">
@@ -673,20 +738,47 @@ function mortChart(s){
   const grid=Array.from({length:5},(_,k)=>`<line x1="${padL}" x2="${W-padR}" y1="${yp((max/5)*(k+1))}" y2="${yp((max/5)*(k+1))}" stroke="#eef2f7" stroke-width="1"/>`).join("");
   const mb=cur.probability;
   return `<div class="card"><h4>Mortality &amp; Hospitalization Spike outlook <span class="hint">predictive, from the risk-engine forecast</span></h4>
-    <div style="display:flex;gap:10px;align-items:center">
-    <svg viewBox="0 0 ${W} ${H}" style="flex:1;min-width:0" role="img" aria-label="Mortality risk forecast chart">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:150px" role="img" aria-label="Mortality risk forecast chart">
       ${grid}${line("hosp","#e07bb0")}${line("mort","#1467f0")}
       ${pts.map((p,i)=>p.mort!=null?`<text x="${xp(i)}" y="${yp(p.mort)-6}" text-anchor="middle" font-size="8" font-weight="700" fill="${col(p.mort)}">${lbl(p)}</text>`:"").join("")}
       ${rowdots}
     </svg>
-    <div style="font-size:11px;line-height:1.7">
-      <div><span class="sw" style="background:#1467f0"></span> Mortality risk (prob.)</div>
-      <div><span class="sw" style="background:#e07bb0"></span> Hospitalization Spike (prob.)</div>
-      <div style="margin-top:6px;color:#7a4b00">Today: <b>${Math.round(cur.probability*100)}%</b> · ${esc(cur.band)}</div>
-      <div style="color:var(--muted);margin-top:4px">Modelled forecast — not clinical; confidence falls after day 3.</div>
-    </div></div></div>`;}
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-top:8px">
+      <span><span class="sw" style="background:#1467f0"></span> Mortality risk (prob.)</span>
+      <span><span class="sw" style="background:#e07bb0"></span> Hospitalization Spike (prob.)</span>
+    </div>
+    <div style="font-size:11px;margin-top:6px;color:#7a4b00">Today: <b>${Math.round(cur.probability*100)}%</b> · ${esc(cur.band)}</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:4px">Modelled forecast — not clinical; confidence falls after day 3.</div>
+    </div>`;}
 function shortDay(day){const m=(day||"").match(/[A-Za-z]{3} \d{1,2} \w{3}/);return m?day.split(" ")[0]:day;}
 
+/* ---- ward-level 5-day heat trend: this section didn't exist before (the
+   Forecast tab only had the numeric table below) -- built from the same
+   `forecast` array the table uses, so no extra API call. Mirrors the
+   city-level 30-day trend visually (coloured band bars) but at ward
+   granularity, and stacked with its own full-width row rather than
+   squeezed next to a legend. ---- */
+function wardTrendChart(s){
+  const fc=s.forecast||[];
+  if(!fc.length)return `<div class="card"><h4>5-day Heat Trend</h4><div class="prov">Forecast data warming up — check back shortly.</div></div>`;
+  const HO={"Low":34,"Moderate":58,"High":82,"Severe":108};
+  const bars=fc.map(f=>{
+    const b=f.band||"Low", h=HO[b]||40;
+    const conf=f.confidence!=null?Math.round(f.confidence*100):null;
+    const tip=`${f.day}: ${b} · HTSI ${f.peak_htsi} · UTCI ${f.peak_utci}°C`+(conf!=null?` · ${conf}% confidence`:"");
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0" title="${esc(tip)}">
+      <span style="font-size:9.5px;color:${BCOL[b]};font-weight:700;margin-bottom:3px">${f.peak_htsi}</span>
+      <i style="display:block;width:26px;max-width:60%;height:${h}px;background:${BCOL[b]};border-radius:4px;${conf!=null?`opacity:${Math.max(.45,conf/100)}`:""}"></i>
+      <span style="font-size:10px;color:#6b7c94;margin-top:5px;text-align:center">${esc((f.day||"").split(" ").slice(0,2).join(" "))}</span>
+      <span class="badge bg${b}" style="font-size:9px;margin-top:3px">${b}</span></div>`;}).join("");
+  return `<div class="card"><h4>5-day Heat Trend <span class="hint">this ward's forecast, day by day</span></h4>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:150px;padding:10px 4px 0">${bars}</div>
+    <div style="display:flex;gap:14px;align-items:center;margin-top:10px;font-size:10.5px;color:#23344a;flex-wrap:wrap">
+      ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${BCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
+      <span style="color:#6b7c94">· bar opacity = forecast confidence</span>
+    </div>
+    <div class="prov" style="margin-top:6px">Peak HTSI forecast per day for this ward. Confidence falls after day 3 — see the table below for the full breakdown.</div></div>`;
+}
 function forecastCard(fc){if(!fc||!fc.length)return "";
   const worst=fc.reduce((a,f)=>(_WBAND.indexOf(f.band)>_WBAND.indexOf(a.band)?f:a),fc[0]);
   return dcard("5-day forecast","confidence degrades after day 3",`worst: ${worst.day} · ${worst.band}`,`
