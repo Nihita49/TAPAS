@@ -18,7 +18,7 @@ const ESRI_GRAY_BASE="https://services.arcgisonline.com/ArcGIS/rest/services/Can
 const ESRI_GRAY_REF="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
 const ESRI_ATTR='Tiles &copy; Esri — Esri, DeLorme, NAVTEQ';
 const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
-  map:null,wardLayers:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
+  map:null,wardLayers:{},wardLabels:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
   cityFullBounds:null,_selectedWardId:null};
 async function api(p,opts){const r=await fetch(p,Object.assign({headers:{"Content-Type":"application/json"}},opts));if(!r.ok)throw new Error((await r.text()).slice(0,140));return r.json();}
 const sleep=ms=>new Promise(res=>setTimeout(res,ms));
@@ -34,6 +34,7 @@ function initMap(){
   st.indiaLayer=L.layerGroup().addTo(st.map);
   st.markerLayer=L.layerGroup().addTo(st.map);
   st.wardLayerGroup=L.layerGroup().addTo(st.map);
+  st.wardLabelGroup=L.layerGroup().addTo(st.map);   // always-on numeric labels per ward, see loadWards()
   st.map.on("click",()=>{const d=$("#searchDrop"); if(d)d.classList.add("hidden");});
   // ---- India<->City hierarchy stays aligned with the CAMERA, not just with
   // button clicks: if the person zooms/pinches/scrolls back out to national
@@ -80,6 +81,7 @@ async function boot(){
     $("#zHome").onclick=()=>goIndia();
     wireSearch();
     buildSearchIndex();   // background; doesn't block first paint
+    warmTrendCache();     // pre-fetch the 30-day trend so it's ready before anyone opens a city
     renderIndia();
   }catch(e){$("#sidepanel").innerHTML="<div class='placeholder'>Load error: "+esc(e.message)+"</div>";}
 }
@@ -169,7 +171,7 @@ function renderIndia(){
    hand-projected SVG-over-a-static-PNG approach entirely. ---- */
 function renderNationalMap(){
   st.indiaLayer.clearLayers(); st.markerLayer.clearLayers();
-  if(st.wardLayerGroup.getLayers().length)fadeClearLayers([st.wardLayerGroup]);   // fade any ward polygons still on screen instead of yanking them out
+  if(st.wardLayerGroup.getLayers().length)fadeClearLayers([st.wardLayerGroup,st.wardLabelGroup]);   // fade any ward polygons/labels still on screen instead of yanking them out
   const pilotStates=["Maharashtra","Gujarat","Tamil Nadu","Telangana"];
   L.geoJSON(st.india.states,{
     style:f=>{const pilot=pilotStates.includes(f.properties.name);
@@ -240,19 +242,36 @@ function renderWatch(w,mount){
      <div class="nw-note">Click a city card to open its live ward map &mdash; or a city marker on the map. Hover bars for per-band counts. Mortality / Hospitalization Spike are model outputs, not clinical forecasts.</div>`;
   mount.querySelectorAll(".nw-card").forEach(el=>el.onclick=()=>openCity(el.dataset.id));
 }
-let _trendCache=null,_trendCacheTs=0;
-async function cityTrendCard(city){
+let _trendCache=null,_trendCacheTs=0,_trendWarming=false;
+async function warmTrendCache(){
+  // pre-fetch the 30-day series at boot, in parallel with everything else,
+  // so by the time someone opens a city and clicks the trend tab the data
+  // is already sitting in cache instead of racing a fresh fetch.
+  if(_trendWarming)return; _trendWarming=true;
+  try{_trendCache=await api("/api/trend?days=30");_trendCacheTs=Date.now();}catch(e){/* cityTrendCard will retry itself */}
+}
+async function cityTrendCard(city,attempt){
+  attempt=attempt||0;
   const sp=$("#sidepanel"); if(!sp)return;
   const slot=sp.querySelector("#cityTrendSlot");
-  const h=document.createElement("div"); h.id="cityTrendBox";
-  if(slot)slot.appendChild(h); else sp.appendChild(h);
+  if(!slot)return;   // user navigated away before this resolved -- nothing to fill in
+  let h=slot.querySelector("#cityTrendBox");
+  if(!h){h=document.createElement("div"); h.id="cityTrendBox"; slot.appendChild(h);}
   const name=cityInfo(city).name;
-  h.innerHTML=dcard("30-day heat trend",esc(name),"Loading…","<div class='prov'>Loading…</div>",true);
+  if(attempt===0)h.innerHTML=dcard("30-day heat trend",esc(name),"Loading…","<div class='prov'>Loading…</div>",true);
   try{
     const now=Date.now();
     if(!_trendCache||now-_trendCacheTs>120000){_trendCache=await api("/api/trend?days=30");_trendCacheTs=now;}
     const rows=(_trendCache.series||[]).map(p=>({p,c:(p.cities||[]).find(x=>x.city===city)})).filter(r=>r.c);
-    if(!rows.length){h.innerHTML="";return;}
+    if(!rows.length){
+      // don't just give up on a blank/slow response -- the same retry
+      // pattern the national watch card already uses, so the chart
+      // reliably shows up on its own instead of only after some other
+      // action (like the simulator) happens to trigger a second load.
+      if(attempt<6){_trendCache=null;setTimeout(()=>cityTrendCard(city,attempt+1),1200);return;}
+      h.innerHTML=dcard("30-day heat trend",esc(name),"","<div class='prov'>Trend data still warming up — check back shortly.</div>",true);
+      return;
+    }
     const HO={"Low":30,"Moderate":52,"High":74,"Severe":96};
     const bars=rows.map((r,i)=>{const p=r.p,b=r.c.worst||"Low",live=p.src==="live-scan";
       const dlabel=(p.ts||"").slice(8,10);
@@ -265,10 +284,11 @@ async function cityTrendCard(city){
       <div style="display:flex;align-items:flex-end;gap:5px;height:150px;overflow-x:auto;padding:6px 2px">${bars}</div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:6px;font-size:10.5px;color:#23344a;flex-wrap:wrap">
         ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${_WCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
-        <span style="color:#6b7c94">· opaque = live scan · faded = archive backfill</span>
-      </div>
-      <div class="prov">Each bar = that day's worst ward band in <b>${esc(name)}</b>. Modelled signal, not a validated clinical measure.</div>`,true);
-  }catch(e){h.innerHTML="";}
+      </div>`,true);
+  }catch(e){
+    if(attempt<6){setTimeout(()=>cityTrendCard(city,attempt+1),1200);return;}
+    h.innerHTML=dcard("30-day heat trend",esc(name),"","<div class='prov'>Trend temporarily unavailable.</div>",true);
+  }
 }
 
 /* ================= CITY ================= */
@@ -295,6 +315,15 @@ async function openCity(id){
   // so this reads as one continuous zoom-in on the place clicked, rather
   // than a jump followed by an unrelated re-zoom.
   st.map.flyTo([lat,lon],12,{duration:0.9});
+  // markers must be gone BEFORE the zoom animation starts, not fading during
+  // it -- Leaflet's flyTo animates zoom via a CSS transform on the whole
+  // vector pane, and a circleMarker's radius is fixed in *pixels* (unlike
+  // real-world-sized polygons), so scaling that pane visibly balloons it
+  // mid-flight. Clearing it synchronously, right here, means there's
+  // nothing left in the pane to distort once the animation begins. The
+  // state-boundary polygons still fade out gracefully in loadWards() below
+  // -- only the small circle markers get this instant-clear treatment.
+  st.markerLayer.clearLayers();
   await loadWards(false);
   if(st.cityFullBounds)st.map.flyToBounds(st.cityFullBounds,{padding:[24,24],duration:0.9});
 }
@@ -315,9 +344,13 @@ async function loadWards(fly=true){
   // clicked (while the flyTo animation is still mid-flight) was what made
   // the marker "turn white": the layers vanished onto a bare basemap before
   // the zoom had actually arrived anywhere.
-  if(st.indiaLayer.getLayers().length||st.markerLayer.getLayers().length)fadeClearLayers([st.indiaLayer,st.markerLayer]);
+  // markerLayer is already cleared synchronously in openCity() (see the
+  // comment there) -- only the state-boundary polygons need the graceful fade.
+  if(st.indiaLayer.getLayers().length)fadeClearLayers([st.indiaLayer]);
   st.wardLayerGroup.clearLayers();
+  st.wardLabelGroup.clearLayers();
   st.wardLayers={};
+  st.wardLabels={};
   const layer=L.geoJSON({type:"FeatureCollection",features:st.geo},{
     style:f=>wardStyle(f.properties),
     onEachFeature:(f,lyr)=>{
@@ -327,6 +360,13 @@ async function loadWards(fly=true){
       lyr.on("click",()=>openWard(p.id));
       lyr.on("mouseover",()=>{if(st._selectedWardId!==p.id)lyr.setStyle({weight:2.2,color:"#0d1f38"});});
       lyr.on("mouseout",()=>{if(st._selectedWardId!==p.id)lyr.setStyle(wardStyle(p));});
+      // always-visible number on the ward itself -- previously you had to
+      // hover or click to see any value at all, so an unclicked ward just
+      // read as a flat, undifferentiated colour (easy to mistake for "still
+      // loading"). interactive:false lets clicks pass through to the ward
+      // polygon underneath it.
+      const mk=L.marker(lyr.getBounds().getCenter(),{interactive:false,icon:wardLabelIcon(p)}).addTo(st.wardLabelGroup);
+      st.wardLabels[p.id]=mk;
     }
   }).addTo(st.wardLayerGroup);
   st.cityFullBounds=layer.getBounds();
@@ -503,9 +543,24 @@ function wardStyle(p){
   else{const key=st.layer==="mort"?p.mort:st.layer==="hosp"?p.hosp:p.band;f=BCOL[key]||"#999";}
   return {fillColor:f,fillOpacity:0.55,color:"#fff",weight:1};
 }
+function wardLabelIcon(p){
+  return L.divIcon({className:"wardnum-wrap",html:`<span class="wardnum">${esc(wardLabelValue(p))}</span>`,iconSize:[1,1],iconAnchor:[0,0]});
+}
+function wardLabelValue(p){
+  if(!p.available)return "–";
+  if(st.layer==="utci")return p.utci!=null?Math.round(p.utci):"–";
+  if(st.layer==="veg")return p.veg!=null?Math.round(p.veg*100)+"%":"–";
+  if(st.layer==="mort")return p.mort?p.mort[0]:"–";     // L/M/H/S band initial
+  if(st.layer==="hosp")return p.hosp?p.hosp[0]:"–";
+  return p.htsi!=null?p.htsi:"–";                        // default: HTSI layer
+}
 function setLayer(l,silent){st.layer=l;
   document.querySelectorAll("#layers button").forEach(b=>b.classList.toggle("on",b.dataset.l===l));
-  if(st.geo&&!silent){st.geo.forEach(f=>{const lyr=st.wardLayers[f.properties.id];if(lyr)lyr.setStyle(wardStyle(f.properties));});}
+  if(st.geo){st.geo.forEach(f=>{const p=f.properties,lyr=st.wardLayers[p.id];
+    if(lyr&&!silent)lyr.setStyle(wardStyle(p));
+    const mk=st.wardLabels[p.id];
+    if(mk)mk.setIcon(wardLabelIcon(p));
+  });}
   renderLegend();}
 function renderLegend(){const lg=$("#legend");
   if(st.layer==="utci"){lg.innerHTML=`<span style="font-size:11px;font-weight:700">UTCI heat stress (°C)</span>`+gradCells([[22,"22"],[30,"30"],[36,"36"],[44,"44+"]],v=>heat(v,22,44));return;}
@@ -606,7 +661,7 @@ function projectionCard(pr){
     return `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(row.label)}</span><b>mortality ${red>0?red.toFixed(0)+"% ↓":"no change"}</b></div>
     <div class="bar"><i style="width:${Math.min(100,red)}%;background:${red>=35?"#2e9e5b":red>=15?"#7fb069":"#c7d0db"}"></i></div>
     <div style="font-size:10.5px;color:var(--muted)">${esc(row.desc)} · risk ${Math.round(row.mort_before*1000)/10}% → ${Math.round(row.mort_after*1000)/10}% (${esc(row.mort_band_after)})</div></div>`;};
-  holder.innerHTML=dcard("Preventive-impact projection","modelled scenario","auto-generated",`
+  holder.innerHTML=dcard("Preventive-impact projection","modelled scenario","",`
     <p style="font-size:12px;color:#23344a">If adaptive capacity (cooling access / shelters / shade) rises, modelled mortality risk falls. Scenario on the same defensible-default model.</p>
     ${rows.map(mkbar).join("")}
     <div class="cav" style="border-left:4px solid #b7791f;font-size:11px"><b>Scenario, not measured.</b> ${esc(pr.disclosure||"")}</div>`);
@@ -660,13 +715,13 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
     <div class="card"><h4>Output 2 · Hospitalization Spike</h4>
       ${s.hospitalisation?mk(s.hospitalisation,"Hospitalization Spike"):""}</div>
     ${mortChart(s)}
-    <details class="dcard" style="margin:8px 0"><summary><h4 style="font-size:12.5px">More numbers</h4><span class="dcard-teaser">temp, pop.</span></summary>
+    <details class="dcard" style="margin:8px 0"><summary><h4 style="font-size:12.5px">Additional readings</h4><span class="dcard-teaser">temp, population</span></summary>
       <div class="dcard-body"><div class="kpis">
       ${kpi("UTCI",c.utci!=null?c.utci+" °C":"Insufficient")}
       ${kpi("Air temp",c.tair!=null?c.tair+" °C":"—")}
       ${kpi("Day max",c.daymax!=null?c.daymax+" °C":"—")}
-      ${kpi("vs city normal",c.anom!=null?(c.anom>=0?"+":"")+c.anom+" °C":"—")}
-      ${kpi("Pop. 2011 (city)",(d.census2011.population/1e6).toFixed(1)+" M")}
+      ${kpi("Above city average",c.anom!=null?(c.anom>=0?"+":"")+c.anom+" °C":"—")}
+      ${kpi("Population (2011 census)",(d.census2011.population/1e6).toFixed(1)+" M")}
     </div></div></details>
     ${c.sim_active?`<div class="cav">Under the labelled heatwave preview (not live). Reset to see today's real conditions.</div>`:""}
   </div>
@@ -737,7 +792,7 @@ function mortChart(s){
   const rowdots=pts.map((p,i)=>`<text x="${xp(i)}" y="${H-8}" text-anchor="middle" font-size="8.5" fill="#6b7c94">${esc(p.lab)}</text>`).join("");
   const grid=Array.from({length:5},(_,k)=>`<line x1="${padL}" x2="${W-padR}" y1="${yp((max/5)*(k+1))}" y2="${yp((max/5)*(k+1))}" stroke="#eef2f7" stroke-width="1"/>`).join("");
   const mb=cur.probability;
-  return `<div class="card"><h4>Mortality &amp; Hospitalization Spike outlook <span class="hint">predictive, from the risk-engine forecast</span></h4>
+  return `<div class="card"><h4>Mortality &amp; Hospitalization Spike outlook</h4>
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:150px" role="img" aria-label="Mortality risk forecast chart">
       ${grid}${line("hosp","#e07bb0")}${line("mort","#1467f0")}
       ${pts.map((p,i)=>p.mort!=null?`<text x="${xp(i)}" y="${yp(p.mort)-6}" text-anchor="middle" font-size="8" font-weight="700" fill="${col(p.mort)}">${lbl(p)}</text>`:"").join("")}
@@ -748,7 +803,6 @@ function mortChart(s){
       <span><span class="sw" style="background:#e07bb0"></span> Hospitalization Spike (prob.)</span>
     </div>
     <div style="font-size:11px;margin-top:6px;color:#7a4b00">Today: <b>${Math.round(cur.probability*100)}%</b> · ${esc(cur.band)}</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:4px">Modelled forecast — not clinical; confidence falls after day 3.</div>
     </div>`;}
 function shortDay(day){const m=(day||"").match(/[A-Za-z]{3} \d{1,2} \w{3}/);return m?day.split(" ")[0]:day;}
 
@@ -771,13 +825,11 @@ function wardTrendChart(s){
       <i style="display:block;width:26px;max-width:60%;height:${h}px;background:${BCOL[b]};border-radius:4px;${conf!=null?`opacity:${Math.max(.45,conf/100)}`:""}"></i>
       <span style="font-size:10px;color:#6b7c94;margin-top:5px;text-align:center">${esc((f.day||"").split(" ").slice(0,2).join(" "))}</span>
       <span class="badge bg${b}" style="font-size:9px;margin-top:3px">${b}</span></div>`;}).join("");
-  return `<div class="card"><h4>5-day Heat Trend <span class="hint">this ward's forecast, day by day</span></h4>
+  return `<div class="card"><h4>5-day Heat Trend</h4>
     <div style="display:flex;align-items:flex-end;gap:8px;height:150px;padding:10px 4px 0">${bars}</div>
     <div style="display:flex;gap:14px;align-items:center;margin-top:10px;font-size:10.5px;color:#23344a;flex-wrap:wrap">
       ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${BCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
-      <span style="color:#6b7c94">· bar opacity = forecast confidence</span>
-    </div>
-    <div class="prov" style="margin-top:6px">Peak HTSI forecast per day for this ward. Confidence falls after day 3 — see the table below for the full breakdown.</div></div>`;
+    </div></div>`;
 }
 function forecastCard(fc){if(!fc||!fc.length)return "";
   const worst=fc.reduce((a,f)=>(_WBAND.indexOf(f.band)>_WBAND.indexOf(a.band)?f:a),fc[0]);
