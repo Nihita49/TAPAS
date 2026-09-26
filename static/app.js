@@ -3,7 +3,9 @@
    Views: INDIA (national landing map + city markers) -> CITY (real Leaflet
    ward map) -> WARD detail. Mortality & Hospitalization Spike are separate
    logistics on the same weighted H/V/E/AC factors as HTSI.
-   Map: real Leaflet map on a CARTO Positron (light) tile basemap. Ward/state
+   Map: real Leaflet map on Esri's keyless World Light Gray Canvas tiles
+   (CARTO's equivalent free tiles started requiring an API key in Sept 2026,
+   so this uses a still-genuinely-keyless provider instead). Ward/state
    polygons are real GeoJSON from the backend (data/cities/{City}/wards.geojson,
    data/processed/india_simp.geojson) rendered as genuine Leaflet vector
    layers -- no static basemap image, no hand-rolled projection. */
@@ -12,8 +14,9 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const BCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 const LAYERLAB={"htsi":"Hazard risk (HTSI)","mort":"Mortality risk","hosp":"Hospitalization Spike","utci":"UTCI hazard (°C)","veg":"Satellite vegetation (%)"};
 const INDIA_CENTER=[22.9,79.0], INDIA_ZOOM=5;
-const CARTO_LIGHT="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const CARTO_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const ESRI_GRAY_BASE="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const ESRI_GRAY_REF="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
+const ESRI_ATTR='Tiles &copy; Esri — Esri, DeLorme, NAVTEQ';
 const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
   map:null,wardLayers:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
   cityFullBounds:null,_selectedWardId:null};
@@ -26,7 +29,8 @@ function heat(v,min,max){const t=Math.max(0,Math.min(1,(v-min)/(max-min||1)));re
    flyTo()/fitBounds() on real coordinates, not a content swap. ---- */
 function initMap(){
   st.map=L.map("map",{zoomControl:false,minZoom:4,maxZoom:18}).setView(INDIA_CENTER,INDIA_ZOOM);
-  L.tileLayer(CARTO_LIGHT,{attribution:CARTO_ATTR,maxZoom:19,subdomains:"abcd"}).addTo(st.map);
+  L.tileLayer(ESRI_GRAY_BASE,{attribution:ESRI_ATTR,maxZoom:19,maxNativeZoom:16}).addTo(st.map);
+  L.tileLayer(ESRI_GRAY_REF,{maxZoom:19,maxNativeZoom:16}).addTo(st.map);   // place-name labels layer
   st.indiaLayer=L.layerGroup().addTo(st.map);
   st.markerLayer=L.layerGroup().addTo(st.map);
   st.wardLayerGroup=L.layerGroup().addTo(st.map);
@@ -139,7 +143,7 @@ function renderIndia(){
   $("#legend").innerHTML=`<span style="font-size:11px;font-weight:700">National coverage</span>
     <span class="cell"><span class="sw" style="background:#1467f0"></span>Live pilot city — click to open</span>
     <span class="cell"><span class="sw" style="background:#0a1e40;border:0"></span>State boundaries</span>`;
-  $("#srcnote").textContent="Real GIS map (Leaflet · CARTO Positron basemap · real state/ward GeoJSON). Click a pilot-city marker (Ahmedabad · Chennai · Hyderabad · Mumbai) to open its ward map.";
+  $("#srcnote").textContent="Real GIS map (Leaflet · Esri Light Gray basemap · real state/ward GeoJSON). Click a pilot-city marker (Ahmedabad · Chennai · Hyderabad · Mumbai) to open its ward map.";
   renderSideIndia();
 }
 /* ---- real geographic India layer: actual state-boundary GeoJSON +
@@ -417,7 +421,7 @@ function renderLegend(){const lg=$("#legend");
   const hint=(st.layer==="mort"||st.layer==="hosp")?'<span style="color:#7a4b00;font-size:11px">Mortality &amp; Hospitalization Spike are decision outputs computed from the same weighted H/V/E/AC factors as HTSI via a separate exposure–response logistic.</span>':"";
   if(hint)lg.insertAdjacentHTML("beforeend",hint);}
 function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden">`+arr.map(([v,lab])=>`<span style="width:32px;height:16px;background:${fn?fn(v):"#fff"};display:grid;place-items:center;font-size:9px;color:#fff">${lab}</span>`).join("")+`</span>`;}
-function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Real GIS map: Leaflet + CARTO Positron basemap, real ward boundaries (${c.boundary_source||"municipal wards"}). Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
+function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Real GIS map: Leaflet + Esri Light Gray basemap, real ward boundaries (${c.boundary_source||"municipal wards"}). Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
 
 /* ================= WARD ================= */
 function selectWard(id){
