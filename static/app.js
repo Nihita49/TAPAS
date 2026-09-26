@@ -430,8 +430,7 @@ async function allocationCard(city){
       <table class="t"><thead><tr><th>Ward</th><th>Mort</th><th>Score</th><th>Share</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${esc(r.ward)}</td><td><span class="badge bg${r.mort_band}" style="font-size:10px">${r.mort_band}</span></td>
         <td>${r.priority_score}</td><td>${r.share_pct}%</td></tr>`).join("")||`<tr><td colspan="4">No wards currently elevated (all Low risk).</td></tr>`}
-      </tbody></table>
-      <div class="prov">Ranked by modelled HTSI &amp; mortality priority score. Deployment illustrative — not an audited plan. ${esc(a.disclosure||"")}</div>`);
+      </tbody></table>`);
     const sp=$("#sidepanel");
     const slot=sp.querySelector("#allocSlot");
     if(slot)slot.appendChild(h);
@@ -489,8 +488,7 @@ function cityForecastTab(agg){
 function cityActionsTab(agg,c){
   if(!agg)return `<div class="prov">Loading…</div>`;
   return `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Alert level: <b>${esc(agg.alert_level||"—")}</b></div>
-  <ul style="margin:6px 0;padding-left:18px">${(agg.admin_measures||[]).map(m=>`<li style="font-size:13px;line-height:1.55;margin:5px 0">${esc(m)}</li>`).join("")}</ul>
-  <div class="prov">Two-tier response modelled on the Ahmedabad Heat Action Plan. Resident SMS guidance is set per ward (click a ward).</div>`;
+  <ul style="margin:6px 0;padding-left:18px">${(agg.admin_measures||[]).map(m=>`<li style="font-size:13px;line-height:1.55;margin:5px 0">${esc(m)}</li>`).join("")}</ul>`;
 }
 function outlookLine(pts){
   const W=300,H=120,padL=8,padB=20,padT=14,padR=8;
@@ -844,7 +842,7 @@ ${ex.lang}: ${ex.local}
 -- EMERGENCY (heatstroke) --
 Signs: high body temp, confusion, no sweating. Call 112/108 now.</pre>`).join("");
   const note=`<div style="margin:8px 0;font-size:12.5px;color:#23344a">
-    Alerts are sent as SMS/WhatsApp using Twilio. ${tw.configured?"Twilio is configured on this server — sends go out for real.":"Twilio isn't configured on this server, so sends are logged here but not actually delivered."}
+    Alerts are sent as SMS/WhatsApp using Twilio. ${tw.configured?"Twilio is configured on this server, so sends go out for real.":"Twilio is a paid commercial platform and isn't set up on this server, so sends are logged here rather than actually delivered."}
     <div class="prov" style="margin-top:6px">Example High/Severe ward alerts, one per pilot city:</div>
     ${examples}</div>`;
   const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+note+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(e.ts)} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
