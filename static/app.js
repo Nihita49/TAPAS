@@ -471,9 +471,21 @@ function cityOverviewTab(agg){
   const dist=agg.distribution.mortality||{};
   const total=Object.values(dist).reduce((a,b)=>a+b,0)||1;
   const LAY=["Low","Moderate","High","Severe"];
-  const barH=90;
+  // layout constants, all in the SVG's own coordinate space:
+  const barH=100;          // total chart height
+  const labH=16;           // reserved strip at the bottom for the band name
+  const padTop=16;         // reserved strip at the top so a full-height bar's numeral never nears the edge
+  const plotBottom=barH-labH;      // every bar sits on this baseline
+  const plotH=plotBottom-padTop;   // max height a bar can actually reach
+  const numGap=18;         // minimum clearance kept between a numeral and the band-name row below it
   const distSvg=`<svg viewBox="0 0 300 ${barH}" style="width:100%">`+
-    LAY.map((k,i)=>{const v=dist[k]||0;const f=v/total;const x=14+i*70+8;return `<rect x="${x}" y="${barH-18-(f*barH-22)}" width="46" height="${Math.max(3,f*barH-22)}" rx="3" fill="${BCOL[k]}" opacity="0.85"><title>${k}: ${v}</title></rect><text x="${x+23}" y="${barH-18-(f*barH-22)-5}" text-anchor="middle" font-size="10" font-weight="700" fill="${BCOL[k]}">${v}</text><text x="${x+23}" y="${barH-5}" text-anchor="middle" font-size="8.5" fill="#6b7c94">${k}</text>`;}).join("")+
+    LAY.map((k,i)=>{
+      const v=dist[k]||0,f=v/total,x=14+i*70+8;
+      const h=Math.max(3,f*plotH);                       // actual bar height (small but visible even at 0)
+      const top=plotBottom-h;                             // bar's top edge
+      const numY=Math.min(top-6,plotBottom-numGap);       // numeral tracks the bar tip, but never drifts closer than numGap to the label
+      return `<rect x="${x}" y="${top}" width="46" height="${h}" rx="3" fill="${BCOL[k]}" opacity="0.85"><title>${k}: ${v}</title></rect><text x="${x+23}" y="${numY}" text-anchor="middle" font-size="10" font-weight="700" fill="${BCOL[k]}">${v}</text><text x="${x+23}" y="${barH-4}" text-anchor="middle" font-size="8.5" fill="#6b7c94">${k}</text>`;
+    }).join("")+
     `</svg>`;
   return `<div class="prov">Wards by Mortality-risk band right now:</div>${distSvg}
     <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">${total} wards · live weather + real satellite environment.</div>`;
