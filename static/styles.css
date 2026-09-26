@@ -255,16 +255,29 @@ table.t th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-s
 .sres .fb{font-size:9.5px;color:#8a6200;background:#fff8e6;border:1px solid #ecd9a8;border-radius:8px;padding:1px 6px;margin-left:6px}
 .sres-empty{padding:10px;color:var(--muted);font-size:12px;text-align:center}
 
-/* ===== filter navbar (city level: Low/Moderate/High/Severe) ===== */
-.filterbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--line);background:#fbfdff}
+/* ===== filter sidebar (city level: Low/Moderate/High/Severe) -- a
+   vertical, draggable floating panel over the map, not a horizontal bar.
+   Positioned absolute by default (top-right of the map); dragging switches
+   it to position:fixed at the pointer (see wireFilterDrag in app.js). ===== */
+.filterbar{position:absolute;top:64px;right:14px;z-index:9;width:172px;
+  display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--line);
+  border-radius:12px;background:#fff;box-shadow:var(--shadow)}
 .filterbar.hidden{display:none}
+.filterbar-head{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--ink)}
+.filterbar-grip{cursor:grab;color:var(--muted);letter-spacing:-2px;font-size:11px;user-select:none}
+.filterbar-grip:active{cursor:grabbing}
+.filterbar-x{margin-left:auto;border:none;background:transparent;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;padding:0 2px}
+.filterbar-x:hover{color:var(--ink)}
+.filterbar-list{display:flex;flex-direction:column;gap:6px}
 .fchip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;
-  border-radius:16px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--muted);
+  border-radius:10px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);
   cursor:pointer;transition:.12s;user-select:none}
 .fchip .dot{width:8px;height:8px;border-radius:50%}
 .fchip.on{color:#fff;border-color:transparent}
-.fchip .cnt{opacity:.85;font-weight:700}
+.fchip .cnt{margin-left:auto;opacity:.85;font-weight:700}
 .fchip:not(.on):hover{border-color:#cfe0ff}
+.fchip-all{justify-content:center;color:var(--accent);border-style:dashed}
+.fchip-all.on{color:#fff;background:var(--accent);border-color:var(--accent);border-style:solid}
 
 /* ---- ward dim (filter) + pulse-on-locate (search) -- these classes are
    added/removed via JS directly on Leaflet's own rendered <path> elements
