@@ -28,7 +28,7 @@ function heat(v,min,max){const t=Math.max(0,Math.min(1,(v-min)/(max-min||1)));re
    share this ONE map instance -- switching levels is a genuine geographic
    flyTo()/fitBounds() on real coordinates, not a content swap. ---- */
 function initMap(){
-  st.map=L.map("map",{zoomControl:false,minZoom:4,maxZoom:18}).setView(INDIA_CENTER,INDIA_ZOOM);
+  st.map=L.map("map",{zoomControl:false,minZoom:4,maxZoom:18,scrollWheelZoom:true}).setView(INDIA_CENTER,INDIA_ZOOM);
   L.tileLayer(ESRI_GRAY_BASE,{attribution:ESRI_ATTR,maxZoom:19,maxNativeZoom:16}).addTo(st.map);
   L.tileLayer(ESRI_GRAY_REF,{maxZoom:19,maxNativeZoom:16}).addTo(st.map);   // place-name labels layer
   st.indiaLayer=L.layerGroup().addTo(st.map);
@@ -59,7 +59,7 @@ async function boot(){
   try{
     initMap();
     const [a,b]=await Promise.all([api("/api/india"),api("/api/cities")]);
-    st.india=a; st.cities=b.cities; st.sim=b.sim; paintLive(); paintStatus(b);
+    st.india=a; st.cities=b.cities; st.sim=b.sim; paintLive();
     $("#outbox").onclick=async()=>modal(await outboxHTML());
     $("#mclose").onclick=()=>$("#modal").classList.add("hidden");
     $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")$("#modal").classList.add("hidden");});
@@ -85,16 +85,6 @@ async function boot(){
   }catch(e){$("#sidepanel").innerHTML="<div class='placeholder'>Load error: "+esc(e.message)+"</div>";}
 }
 function paintLive(){const b=$("#live");const live=st.cities&&st.cities.some(c=>c.weather_prov==="live");b.className="pill"+(live?" liveok":"");b.textContent=live?"● Live · 4 cities":"● meteo fallback";}
-function paintStatus(b){
-  const cs=b&&b.cities||st.cities||[];
-  const live=cs.filter(c=>c.weather_prov==="live").length;
-  const mix=cs.filter(c=>c.weather_prov==="mixed").length;
-  const fb=cs.length-live-mix;
-  const d=$("#sbLive");
-  d.className="sb-dot"+(live? (mix||fb? " mixed":" live") : (mix?" mixed":" fallback"));
-  const extra=(fb||mix)?` &middot; ${mix} mixed, ${fb} fallback`:"";
-  $("#sbText").innerHTML=`National heat-watch &middot; <b>${live}/${cs.length}</b> cities on live weather${extra}. Mortality, Hospitalization Spike &amp; V are <b>early-warning signals on defensible-default (not clinically validated)</b> coefficients.`;
-}
 function cityInfo(id){return st.cities.find(c=>c.id===id);}
 async function goIndia(){renderIndia(); st.map.flyTo(INDIA_CENTER,INDIA_ZOOM,{duration:0.9});}
 
@@ -162,7 +152,6 @@ function renderIndia(){
   $("#legend").innerHTML=`<span style="font-size:11px;font-weight:700">National coverage</span>
     <span class="cell"><span class="sw" style="background:#1467f0"></span>Live pilot city — click to open</span>
     <span class="cell"><span class="sw" style="background:#0a1e40;border:0"></span>State boundaries</span>`;
-  $("#srcnote").textContent="Real GIS map (Leaflet · Esri Light Gray basemap · real state/ward GeoJSON). Click a pilot-city marker (Ahmedabad · Chennai · Hyderabad · Mumbai) to open its ward map.";
   renderSideIndia();
 }
 /* ---- real geographic India layer: actual state-boundary GeoJSON +
@@ -263,11 +252,12 @@ async function cityTrendCard(city,attempt){
     if(!_trendCache||now-_trendCacheTs>120000){_trendCache=await api("/api/trend?days=30");_trendCacheTs=now;}
     const rows=(_trendCache.series||[]).map(p=>({p,c:(p.cities||[]).find(x=>x.city===city)})).filter(r=>r.c);
     if(!rows.length){
-      // don't just give up on a blank/slow response -- the same retry
-      // pattern the national watch card already uses, so the chart
-      // reliably shows up on its own instead of only after some other
-      // action (like the simulator) happens to trigger a second load.
-      if(attempt<6){_trendCache=null;setTimeout(()=>cityTrendCard(city,attempt+1),1200);return;}
+      // don't just give up on a blank/slow response -- retry patiently
+      // (same pattern as the national watch card) so the chart reliably
+      // shows up on its own once the backend has warmed up, rather than
+      // only appearing after some unrelated action (like the simulator)
+      // happens to trigger a second load.
+      if(attempt<40){_trendCache=null;setTimeout(()=>cityTrendCard(city,attempt+1),3000);return;}
       h.innerHTML=dcard("30-day heat trend",esc(name),"","<div class='prov'>Trend data still warming up — check back shortly.</div>",true);
       return;
     }
@@ -285,7 +275,7 @@ async function cityTrendCard(city,attempt){
         ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${_WCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
       </div>`,true);
   }catch(e){
-    if(attempt<6){setTimeout(()=>cityTrendCard(city,attempt+1),1200);return;}
+    if(attempt<40){setTimeout(()=>cityTrendCard(city,attempt+1),3000);return;}
     h.innerHTML=dcard("30-day heat trend",esc(name),"","<div class='prov'>Trend temporarily unavailable.</div>",true);
   }
 }
@@ -368,7 +358,6 @@ async function loadWards(fly=true){
   allocationCard(cityInfo(st.city).id);
   cityTrendCard(cityInfo(st.city).id);
   $("#hov").textContent=cityInfo(st.city).name+" · municipal wards · switch view above (HTSI / Mortality / Hospitalization Spike / UTCI / Vegetation) · click a ward";
-  renderSrcNote();
 }
 /* ---- city-level severity filter (Low/Moderate/High/Severe pills). Dims
    (not hides) non-matching wards so spatial context is preserved. Counts
@@ -524,7 +513,7 @@ function hovText(p){if(!p.available)return "Ward "+esc(p.label)+" — Insufficie
   if(st.layer==="hosp")return `<b>${esc(p.label)}</b> · Hospitalization Spike: <b class="c${p.hosp}">${p.hosp}</b><br>HTSI ${p.htsi}`;
   if(st.layer==="utci")return `<b>${esc(p.label)}</b> · UTCI ${p.utci} °C · air ${p.tair} °C`;
   if(st.layer==="veg")return `<b>${esc(p.label)}</b> · vegetation ${(p.veg*100).toFixed(0)}%`;
-  return `<b>${esc(p.label)}</b> · HTSI ${p.htsi} (<span class="c${p.band}">${p.band}</span>)<br>Mortality ${p.mort} · Hospitalization Spike ${p.hosp}`;}
+  return `<b>${esc(p.label)}</b> · HTSI ${p.htsi} (<span class="c${p.band}">${p.band}</span>)`;}
 function wardStyle(p){
   if(!p.available)return {fillColor:"#c7d0db",fillOpacity:0.35,color:"#fff",weight:1,dashArray:"3 3"};
   let f;
@@ -547,7 +536,6 @@ function renderLegend(){const lg=$("#legend");
   const hint=(st.layer==="mort"||st.layer==="hosp")?'<span style="color:#7a4b00;font-size:11px">Mortality &amp; Hospitalization Spike are decision outputs computed from the same weighted H/V/E/AC factors as HTSI via a separate exposure–response logistic.</span>':"";
   if(hint)lg.insertAdjacentHTML("beforeend",hint);}
 function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden">`+arr.map(([v,lab])=>`<span style="width:32px;height:16px;background:${fn?fn(v):"#fff"};display:grid;place-items:center;font-size:9px;color:#fff">${lab}</span>`).join("")+`</span>`;}
-function renderSrcNote(){const c=cityInfo(st.city);$("#srcnote").textContent=`Real GIS map: Leaflet + Esri Light Gray basemap, real ward boundaries (${c.boundary_source||"municipal wards"}). Mortality & Hospitalization Spike come from a separate model on the same weighted factors as HTSI.`;}
 
 /* ================= WARD ================= */
 function deselectWard(id){
@@ -799,8 +787,7 @@ function forecastCard(fc){if(!fc||!fc.length)return "";
     <td>${f.mortality_prob!=null?`<span class="badge bg${f.peak_mortality_band}" style="font-size:10px">${f.peak_mortality_band}</span><span class="hint">${Math.round(f.mortality_prob*100)}%</span>`:"—"}</td>
     <td>${f.hosp_prob!=null?`<span class="badge bg${f.peak_hosp_band}" style="font-size:10px">${f.peak_hosp_band}</span><span class="hint">${Math.round(f.hosp_prob*100)}%</span>`:"—"}</td>
     <td><span class="conf"><span class="bar"><i style="width:${(f.confidence*100)|0}%;background:${f.confidence<0.62?"#f0722c":"#1467f0"}"></i></span></span>${Math.round(f.confidence*100)}%</td></tr>`).join("")}
-  </tbody></table>
-  <div class="prov">OpenWeatherMap hourly · horizon 120 h. Mortality / Hospitalization Spike are risk bands for that day's peak heat, from the same exposure–response model as today (not clinical forecasts).</div>`,true);}
+  </tbody></table>`,true);}
 function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${lab}</span><b>${Math.round(v*100)}%</b></div><div class="bar"><i style="width:${Math.min(100,v*100)|0}%;background:${col}"></i></div></div>`;
   let s=b("Vegetation",env.veg,"#2e9e5b")+b("Built-up",env.built,"#c26a3a")+b("Water",env.water,"#3a7fd6");
   if(env.ndvi_modis!=null) s+=b("NDVI",Math.max(0,env.ndvi_modis),"#237a4b");
