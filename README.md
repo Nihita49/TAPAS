@@ -67,18 +67,20 @@ HTSI (heat-stress index) · Mortality risk · Hospitalization Spike · UTCI heat
 
 ## How the risk model works
 
-### HTSI — Heat-Threat Stress Index
+### HTSI — the ward heat-stress index
 
 ```
-HTSI = (W_H · H) × (W_V · V) × (W_E · E) × (1 − W_AC · AC) × scale
+HTSI = H × V × E × (1 − AC)
 ```
+
+The code exposes optional multipliers (`W_H, W_V, W_E, W_AC, scale`), all defaulting to **1.0**, so with defaults the index is exactly the formula above. The product is clamped to 0–1.
 
 | Factor | Meaning | Built from |
 |---|---|---|
-| **H** Hazard | How unusual today's heat is | Air-temp anomaly vs the city's ERA5 monthly 90th-percentile Tmax, plus UTCI "surge" (roughly `0.62·anomaly + 0.38·surge` in the forecast path) |
+| **H** Hazard | How unusual today's heat is | `H = clamp(0.62·a + 0.38·s)`, where `a = clamp((day-max − city ERA5 monthly P90 Tmax)/3 °C)` and `s = clamp((UTCI − 36)/10)` |
 | **E** Exposure | Urban thermal environment | Satellite built/vegetation fractions, MODIS land-surface temperature, WUDAPT Local Climate Zone |
 | **V** Vulnerability | Who is at risk | 7 Census-2011 indicators: children 0–6, literacy, slum share, elderly 60+, disability, density, kutcha housing (weights renormalise over available indicators) |
-| **AC** Adaptive capacity | Ability to cool/cope | Per-ward proxy (green cover, hospitals, electricity/water reference data) |
+| **AC** Adaptive capacity | Ability to cool/cope | City baseline × modifiers for built-up density, MODIS NDVI, HL-14 electricity and tap-water access, and OSM hospitals per km²; clamped to 0.05–0.90 |
 
 HTSI is bucketed into **Low / Moderate / High / Severe** using configurable cut-points (default `0.055 / 0.115 / 0.185`).
 
