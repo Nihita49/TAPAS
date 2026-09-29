@@ -247,6 +247,11 @@ RISK_COEF={"mort":{"intercept":-4.3,"anom":3.0,"surge":1.6,"H":1.5,"E":1.4,"V":4
 RISK_COEF_DEFAULTS=json.loads(json.dumps(RISK_COEF))
 BAND_T=[0.055,0.115,0.185]     # HTSI cut-points Low|Moderate|High|Severe
 BAND_T_DEFAULTS=list(BAND_T)
+# IMD heat-wave criteria (departure of daily Tmax from the station NORMAL = mean Tmax):
+#   Heat Wave         : departure 4.5 .. 6.4 degC
+#   Severe Heat Wave  : departure > 6.4 degC
+IMD_HW_DEP=4.5
+IMD_SHW_DEP=6.4
 FLAGS={"sym_anom":False}       # True => anomaly term may also lower risk (a in [-1,1])
 _WFILE=os.path.join(ROOT,"data","weights.json")
 
@@ -458,19 +463,30 @@ def severity(city, rec, series, now):
     tair=cur["tair"]
     # daily max today (with sim offset)
     day=str(now.date()); daymax=max((o["tair"] for o in series if o["t"].date()==now.date()),default=tair)
-    anom=(daymax-base) if base is not None else None
-    anom_driver=_a_of(anom)
+    anom=(daymax-base) if base is not None else None          # vs P90 (display only)
+    norm=_mean_tmax(city,now.month)
+    dep=(daymax-norm) if norm is not None else None           # vs normal (IMD criterion)
+    anom_driver=_a_of(dep)
     # absolute surge term (only extreme UTCI counts; avoids year-round humid flags)
     surge=clamp((utci_v-36.0)/10.0) if utci_v else 0.0
     hsev=clamp(0.62*anom_driver+0.38*surge)
-    return {"hsev":hsev,"utci":utci_v,"tair":tair,"anom":anom,
+    return {"hsev":hsev,"utci":utci_v,"tair":tair,"anom":anom,"dep":dep,
             "base":base,"daymax":daymax}
 
-def _a_of(anom):
-    """Anomaly driver: defaults floor cool days at 0; FLAGS['sym_anom'] allows
-    a symmetric [-1,1] driver so below-normal heat can lower risk."""
-    if anom is None: return 0.0
-    return clamp(anom/3.0,-1,1) if FLAGS.get("sym_anom") else clamp(anom/3.0)
+def _mean_tmax(city, month):
+    """City normal = ERA5 2014-2024 mean daily Tmax for that month (degC)."""
+    return STORE.cities[city]["baseline"]["mean_monthly_tmax"].get(str(month))
+
+def _a_of(dep):
+    """Anomaly driver from IMD departure-from-normal `dep` (degC), 0..1:
+       0 at normal -> 0.5 at IMD Heat Wave onset (4.5) -> 1.0 at IMD Severe (6.4).
+       Default floors cool days at 0; FLAGS['sym_anom'] lets below-normal days
+       go negative (down to -1 at -6.4 degC)."""
+    if dep is None: return 0.0
+    if dep<=0:
+        return clamp(dep/IMD_SHW_DEP,-1,0) if FLAGS.get("sym_anom") else 0.0
+    if dep<=IMD_HW_DEP: return 0.5*dep/IMD_HW_DEP
+    return clamp(0.5+0.5*(dep-IMD_HW_DEP)/(IMD_SHW_DEP-IMD_HW_DEP))
 
 def _risk_terms(a, surge, Hw, Ew, Vw, ACw):
     """Per-term additive contributions to each logistic's z (transparency).
@@ -530,7 +546,7 @@ def compute_snapshot(city, ward, rec, now):
     conf=model_confidence(prov)
     anom=res["anom"]
     # mortality/hospitalisation risk: respond to hazard anomaly + exposure
-    a=_a_of(anom)
+    a=_a_of(res.get("dep"))
     surge=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
     mort,hosp,mt,ht,zm,zh=_risk_terms(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
     mb=rband(mort)[0]; hb=rband(hosp)[0]
@@ -554,6 +570,7 @@ def compute_snapshot(city, ward, rec, now):
       "current":{"tair":round(res["tair"],1),"utci":round(res["utci"],1) if res["utci"] else None,
                  "htsi":round(htsi,4),"band":curband,"confidence":conf,
                  "anom":round(anom,1) if anom is not None else None,
+                 "dep_normal":round(res["dep"],1) if res.get("dep") is not None else None,
                  "baseline_90":round(res["base"],1) if res["base"] else None,
                  "daymax":round(res["daymax"],1),
                  "time":now.isoformat(),
@@ -604,7 +621,8 @@ def forecast(city,ward,rec,now,env,ac):
         u=float(u); t=o["t"]
         base=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(t.month))
         surge=clamp((u-36.0)/10.0)
-        anom_d=clamp((o["tair"]-base)/3.0) if base else 0.0
+        norm=_mean_tmax(city,t.month)
+        anom_d=_a_of(o["tair"]-norm) if norm is not None else 0.0
         hsev=clamp(0.62*anom_d+0.38*surge)
         htsi=(WEIGHTS["H"]*hsev)*(WEIGHTS["V"]*vfor["v"])*(WEIGHTS["E"]*env["E"])*(1.0-WEIGHTS["AC"]*ac)*WEIGHTS["scale"]
         ha=(t.replace(tzinfo=None)-now).total_seconds()/3600.0
@@ -617,8 +635,9 @@ def forecast(city,ward,rec,now,env,ac):
         baseD=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(dd.month))
         daymax=max(x["tair"] for x in arr)
         anom=(daymax-baseD) if baseD is not None else None
+        normD=_mean_tmax(city,dd.month)
         peak=max(arr,key=lambda x:x["h"])
-        a=_a_of(anom)
+        a=_a_of(daymax-normD if normD is not None else None)
         srg=clamp((peak["u"]-36.0)/10.0) if peak["u"] else 0.0
         hsev_day=clamp(0.62*a+0.38*srg)
         mort,hosp=_risk_probs(a,srg,WEIGHTS["H"]*hsev_day,WEIGHTS["E"]*env["E"],WEIGHTS["V"]*vfor["v"],WEIGHTS["AC"]*ac)
@@ -946,8 +965,8 @@ def projection(city,wid):
         return {"available":False,"reason":"Insufficient data","city":city,"ward_label":ward_label(city,w)}
     env=snap["environment"]["satellite"]; ac=snap["environment"].get("ac_ward",snap["environment"]["ac_city"])
     f=snap["factors"]; VV=f["V"]
-    utci=snap["current"].get("utci"); anom=snap["current"].get("anom")
-    a=_a_of(anom)
+    utci=snap["current"].get("utci"); dep=snap["current"].get("dep_normal")
+    a=_a_of(dep)
     surge=clamp((utci-36.0)/10.0) if utci else 0.0
     E=env["E"]; H=f["H"]
     base_mort,base_hosp=_risk_probs(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
@@ -1022,12 +1041,13 @@ def simulate_preventive_impact(city, ward_id, date, selected_measures):
         if us:
             peak=max(us,key=lambda x:x[1])
             base=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(peak[0]["t"].month))
-            a=_a_of(clamp((peak[0]["tair"]-base)/3.0) if base else 0.0)
+            norm=_mean_tmax(city,peak[0]["t"].month)
+            a=_a_of(peak[0]["tair"]-norm if norm is not None else None)
             s=clamp((peak[1]-36.0)/10.0)
     Hh=None
     if a is None:
         res=severity(city,rec,series,now)
-        a=_a_of(res["anom"]); s=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
+        a=_a_of(res.get("dep")); s=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
         Hh=res["hsev"]
     if Hh is None: Hh=clamp(0.62*a+0.38*s)
     bm,bh=_risk_probs(a,s,WEIGHTS["H"]*Hh,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
