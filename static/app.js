@@ -17,7 +17,7 @@ const INDIA_CENTER=[22.9,79.0], INDIA_ZOOM=5;
 const ESRI_GRAY_BASE="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}";
 const ESRI_GRAY_REF="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
 const ESRI_ATTR='Tiles &copy; Esri — Esri, DeLorme, NAVTEQ';
-const st={cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
+const st={cal:null,cities:[],india:null,view:"india",city:null,layer:"htsi",geo:null,mapmeta:null,sim:null,
   map:null,wardLayers:{},filterBands:new Set(["Low","Moderate","High","Severe"]),searchIndex:[],
   cityFullBounds:null,_selectedWardId:null};
 async function api(p,opts){const r=await fetch(p,Object.assign({headers:{"Content-Type":"application/json"}},opts));if(!r.ok)throw new Error((await r.text()).slice(0,140));return r.json();}
@@ -60,6 +60,7 @@ async function boot(){
     initMap();
     const [a,b]=await Promise.all([api("/api/india"),api("/api/cities")]);
     st.india=a; st.cities=b.cities; st.sim=b.sim; paintLive();
+    api("/api/calibration").then(j=>{st.cal=j;}).catch(()=>{});
     $("#outbox").onclick=async()=>modal(await outboxHTML());
     $("#mclose").onclick=()=>$("#modal").classList.add("hidden");
     $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")$("#modal").classList.add("hidden");});
@@ -457,7 +458,7 @@ function renderSideCity(){const c=cityInfo(st.city);
       <button class="wtab" data-t="fc">5-day forecast</button>
       <button class="wtab" data-t="ac">Actions</button>
     </div>
-    <div class="wtabpanel" data-p="ov">${cityOverviewTab(st.agg)}
+    <div class="wtabpanel" data-p="ov">${cityHistCard(st.city)}${cityOverviewTab(st.agg)}
       <p style="font-size:11.5px;color:var(--muted);margin-top:10px">Use the buttons above the map to colour wards by HTSI, Mortality, Hospitalization Spike, UTCI or vegetation. Click any ward for its full profile.</p></div>
     <div class="wtabpanel hidden" data-p="tr"><div id="cityTrendSlot"></div></div>
     <div class="wtabpanel hidden" data-p="fc">${cityForecastTab(st.agg)}</div>
@@ -541,7 +542,7 @@ function renderLegend(){const lg=$("#legend");
   if(st.layer==="veg"){lg.innerHTML=`<span style="font-size:11px;font-weight:700">Satellite vegetation (%)</span>`+gradCells([[0,"0"],[20,"20"],[40,"40+"]]);return;}
   lg.innerHTML=`<span style="font-size:11px;font-weight:700">${LAYERLAB[st.layer]||"Risk"}</span>`+["Low","Moderate","High","Severe"].map(k=>`<span class="cell"><span class="sw" style="background:${BCOL[k]}"></span>${k}</span>`).join("")+
    `<span class="cell"><span class="sw" style="background:#c7d0db;border-style:dashed"></span>Insufficient</span>`;
-  const hint=(st.layer==="mort"||st.layer==="hosp")?'<span style="color:#7a4b00;font-size:11px">Mortality &amp; Hospitalization Spike are decision outputs computed from the same weighted H/V/E/AC factors as HTSI via a separate exposure–response logistic.</span>':"";
+  const hint=(st.layer==="mort"||st.layer==="hosp")?'<span style="color:#7a4b00;font-size:11px">Mortality &amp; Hospitalization Spike are decision outputs computed from the same weighted H/V/E/AC factors as HTSI via a separate exposure–response logistic. Where historical health data exists they also show a calibrated change vs a normal day.</span>':"";
   if(hint)lg.insertAdjacentHTML("beforeend",hint);}
 function gradCells(arr,fn){return `<span style="display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden">`+arr.map(([v,lab])=>`<span style="width:32px;height:16px;background:${fn?fn(v):"#fff"};display:grid;place-items:center;font-size:9px;color:#fff">${lab}</span>`).join("")+`</span>`;}
 
@@ -644,8 +645,8 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
   if(!s||!s.available)return `<div class="w-head"><h2>Ward ${esc(w.label)}</h2></div><p>Insufficient data.</p>`;
   const c=s.current,env=s.environment.satellite,meas=s.measures;
   const calLine=m=>{const k=m.calibrated;
-    if(!k)return `<div class="hint" style="margin:3px 0 0 4px">Uncalibrated: default coefficients, no local health data behind this output.</div>`;
-    return `<div class="hint" style="margin:3px 0 0 4px">Calibrated: <b>${k.excess_pct>=0?"+":""}${k.excess_pct}%</b> vs a normal day (RR ${k.rr}) · ${esc(k.label)}${k.admissions_used?" · uses admissions from "+esc(k.admissions_date):""}</div>`;};
+    if(!k)return `<div class="hline">${histChip("default","Default coefficients: not calibrated on any historical health data")}</div>`;
+    return `<div class="hline">${histChip(k.basis,k.label)}<span class="hint"><b>${k.excess_pct>=0?"+":""}${k.excess_pct}%</b> vs a normal day (RR ${k.rr})${k.admissions_used?" · uses admissions from "+esc(k.admissions_date):""}</span></div>`;};
   const mk=(m,lab)=>`<div class="risk" style="border-left-color:${BCOL[m.band]}"><b style="min-width:150px">${lab}</b>
     <span class="badge bg${m.band}">${esc(m.band)}</span><span class="hint">~${Math.round(m.probability*100)}% above seasonal baseline</span></div>${calLine(m)}`;
   const gauge=`<svg class="gauge" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="#eef2f7" stroke-width="11"/>
@@ -709,6 +710,7 @@ function wardHTML(d){const s=d.snapshot,w=d.ward;
       <tr><td>Population (Census 2011)</td><td>${(d.census2011.population).toLocaleString()}</td></tr>
       <tr><td>Cooling access (this ward)</td><td>${Math.round((s.environment.ac_ward||0)*100)}%</td></tr>
       <tr><td>Seasonal threshold (this month)</td><td>${c.baseline_90} °C</td></tr></tbody></table></div>
+    ${calCard(d.city)}
     <div class="sec">Data layers</div>
     <table class="t"><tbody>
       <tr><td>Weather</td><td>${c.tair} °C</td><td><span class="tag ${s.layers.weather.provenance==="live"?"live":"ref"}">${s.layers.weather.provenance}</span></td></tr>
@@ -788,14 +790,53 @@ function wardTrendChart(s){
       ${["Low","Moderate","High","Severe"].map(b=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:2px;background:${BCOL[b]};display:inline-block"></i>${b}</span>`).join("")}
     </div></div>`;
 }
+/* ---- historical-data calibration: which basis each risk output rests on ---- */
+const CAL_META={"fitted":{cls:"fit",txt:"Historical data · fitted to local records"},
+  "published-anchor":{cls:"pub",txt:"Historical data · published studies"},
+  "default":{cls:"none",txt:"No historical data yet"}};
+function histChip(basis,title){const m=CAL_META[basis]||CAL_META["default"];
+  return `<span class="hchip ${m.cls}" title="${esc(title||"")}">${m.txt}</span>`;}
+const _sg=v=>(v>=0?"+":"")+v+"%";
+function fcRR(f){const parts=[];
+  if(f.mortality_excess_pct!=null)parts.push(`<div>Deaths <b>${_sg(f.mortality_excess_pct)}</b></div>`);
+  if(f.hosp_excess_pct!=null)parts.push(`<div>Hosp. <b>${_sg(f.hosp_excess_pct)}</b></div>`);
+  return parts.length?parts.join(""):`<span class="hint" title="No historical data behind this output yet">—</span>`;}
+function calDetail(b){
+  if(!b||b.basis==="default")return `<div class="hint">${esc((b&&b.note)||"Default coefficients. No historical health data or published estimate entered.")}</div>`;
+  if(b.basis==="fitted"){const p=b.period||[];
+    return `<div class="hint">Model fitted to ${b.n_days} daily records (${esc(p[0])} to ${esc(p[1])}). Heat slope ${b.beta_a} ± ${b.se_a}.</div>`;}
+  const ci=b.rr_ci?` (95% CI ${b.rr_ci[0]} to ${b.rr_ci[1]})`:"";
+  return `<div class="hint">Published relative risk ${b.rr_ref}${ci}. ${esc(b.source||"")}</div>${b.caveat?`<div class="cav">${esc(b.caveat)}</div>`:""}`;}
+function calCard(city){
+  const c=st.cal&&st.cal.cities&&st.cal.cities[city]; if(!c)return "";
+  const m=c.mort||{},h=c.hosp||{},o=c.observed_rows||{deaths:0,admissions:0};
+  const base=m.baseline_per_day!=null?`<tr><td>Typical deaths per day (city)</td><td>${m.baseline_per_day}</td></tr>
+    <tr><td colspan="2" class="hint">${esc(m.baseline_note||"")}</td></tr>`:"";
+  return `<div class="card"><h4>Historical calibration</h4>
+    <div class="hrow"><span>Mortality</span>${histChip(m.basis,m.source||m.note||"")}</div>${calDetail(m)}
+    <div class="hrow" style="margin-top:8px"><span>Hospitalization</span>${histChip(h.basis,h.note||"")}</div>${calDetail(h)}
+    <table class="t" style="margin-top:8px"><tbody>
+      <tr><td>Local records loaded</td><td>${o.deaths} days of deaths · ${o.admissions} days of admissions</td></tr>${base}</tbody></table>
+    <div class="hint" style="margin-top:6px">Calibration sets the overall level for the city. Differences between wards still come from the modelled vulnerability, exposure and cooling factors, which this data does not validate.</div></div>`;}
+function cityHistCard(city){
+  const c=st.cal&&st.cal.cities&&st.cal.cities[city]; if(!c)return "";
+  const m=c.mort||{},h=c.hosp||{},o=c.observed_rows||{deaths:0,admissions:0};
+  const none=!(o.deaths||o.admissions);
+  const note=(none?"No local death or admission records loaded yet.":`Local records loaded: ${o.deaths} days of deaths, ${o.admissions} days of admissions.`)
+    +(m.basis==="published-anchor"?" Mortality is anchored to published study results.":"");
+  return `<div class="card"><h4>Historical health data</h4>
+    <div class="hrow"><span>Mortality</span>${histChip(m.basis,m.source||m.note||"")}</div>
+    <div class="hrow"><span>Hospitalization</span>${histChip(h.basis,h.note||"")}</div>
+    <div class="hint" style="margin-top:6px">${note}</div></div>`;}
 function forecastCard(fc){if(!fc||!fc.length)return "";
   const worst=fc.reduce((a,f)=>(_WBAND.indexOf(f.band)>_WBAND.indexOf(a.band)?f:a),fc[0]);
   return dcard("5-day forecast","confidence degrades after day 3",`worst: ${worst.day} · ${worst.band}`,`
-  <table class="t"><thead><tr><th>Day</th><th>Peak HTSI</th><th>Peak UTCI</th><th>HTSI band</th><th>Mortality</th><th>Hosp. Spike</th><th>Confidence</th></tr></thead><tbody>
+  <table class="t"><thead><tr><th>Day</th><th>Peak HTSI</th><th>Peak UTCI</th><th>HTSI band</th><th>Mortality</th><th>Hosp. Spike</th><th>Vs normal day</th><th>Confidence</th></tr></thead><tbody>
   ${fc.map(f=>`<tr><td>${esc(f.day)}</td><td>${f.peak_htsi}</td><td>${f.peak_utci} °C</td>
     <td><span class="badge bg${f.band}" style="font-size:10px">${f.band}</span></td>
     <td>${f.mortality_prob!=null?`<span class="badge bg${f.peak_mortality_band}" style="font-size:10px">${f.peak_mortality_band}</span><span class="hint">${Math.round(f.mortality_prob*100)}%</span>`:"—"}</td>
     <td>${f.hosp_prob!=null?`<span class="badge bg${f.peak_hosp_band}" style="font-size:10px">${f.peak_hosp_band}</span><span class="hint">${Math.round(f.hosp_prob*100)}%</span>`:"—"}</td>
+    <td>${fcRR(f)}</td>
     <td><span class="conf"><span class="bar"><i style="width:${(f.confidence*100)|0}%;background:${f.confidence<0.62?"#f0722c":"#1467f0"}"></i></span></span>${Math.round(f.confidence*100)}%</td></tr>`).join("")}
   </tbody></table>`,true);}
 function satBars(env){const b=(lab,v,col)=>`<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${lab}</span><b>${Math.round(v*100)}%</b></div><div class="bar"><i style="width:${Math.min(100,v*100)|0}%;background:${col}"></i></div></div>`;
