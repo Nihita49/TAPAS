@@ -2,35 +2,60 @@
  "note": "Published relative risks (RR) used as PRIORS when no observed city data has been fitted. beta_a = ln(RR) / a_ref, where a_ref is the model's anomaly driver at the published exposure. These are order-of-magnitude anchors, not fits. Edit or add entries, then run: python backend/calibrate_risk.py --anchors-only",
  "anchors": [
   {
-   "id": "ahmedabad-2010-peak-week",
+   "id": "debont2024-97p-2d-ahmedabad",
    "use": true, "outcome": "mort", "cities": ["Ahmedabad"],
+   "rr": 1.249, "rr_ci": [1.217, 1.282],
+   "exposure": {"type": "imd_heat_wave", "a_ref": 0.5},
+   "source": "de Bont et al. 2024, Environment International 184:108461 (PMC11790314) - Ahmedabad: +24.9% (95% CI 21.7 to 28.2) daily all-cause deaths on heatwave days, defined as daily mean temperature above the city's 97th percentile for 2 consecutive days, 2008-2019 municipal death registers",
+   "caveat": "The study's exposure is daily MEAN temperature above the 97th percentile; TAPAS's anomaly driver is a Tmax departure from the ERA5 normal. a_ref = 0.5 (IMD Heat Wave onset) equates the two by assumption. A 97th-percentile mean-temperature event is probably milder than a 4.5 C Tmax departure, so this probably understates the slope."
+  },
+  {
+   "id": "debont2024-97p-2d-mumbai",
+   "use": true, "outcome": "mort", "cities": ["Mumbai"],
+   "rr": 1.034, "rr_ci": [1.008, 1.061],
+   "exposure": {"type": "imd_heat_wave", "a_ref": 0.5},
+   "source": "de Bont et al. 2024, Environment International 184:108461 (PMC11790314) - Mumbai: +3.4% (95% CI 0.8 to 6.1), same definition and study as above; the paper reports Mumbai among the weakest associations of the ten cities",
+   "caveat": "Same exposure mapping and a_ref = 0.5 assumption as the Ahmedabad entry. The small effect is a published finding for Mumbai, not a modelling choice."
+  },
+  {
+   "id": "debont2024-97p-2d-pooled",
+   "use": true, "outcome": "mort", "cities": ["Chennai", "Hyderabad"],
+   "rr": 1.147, "rr_ci": [1.103, 1.193],
+   "exposure": {"type": "imd_heat_wave", "a_ref": 0.5},
+   "source": "de Bont et al. 2024, Environment International 184:108461 (PMC11790314) - pooled across ten Indian cities: +14.7% (95% CI 10.3 to 19.3), same definition",
+   "caveat": "Pooled value, not city-specific: Chennai's and Hyderabad's own estimates are in the paper's supplementary Table S1, which was not read. Replace with the city values when entered. Same a_ref = 0.5 assumption. Hyderabad's registry covers only 2008 to June 2011 in this study."
+  },
+  {
+   "id": "ahmedabad-2010-peak-week",
+   "use": false, "outcome": "mort", "cities": ["Ahmedabad"],
    "rr": 1.76, "rr_ci": [1.67, 1.83],
    "exposure": {"type": "tmax_month", "tmax_c": 46.8, "month": 5},
-   "source": "Azhar et al. 2014, PLOS ONE 9(3):e91831 - all-cause mortality rate ratio in the peak heat week (19-25 May 2010), Ahmedabad; the paper reports 1.76 and 2.12 depending on the reference period, the lower is used",
-   "caveat": "a_ref is taken from the single hottest reading of the episode (46.8 C) against Ahmedabad's May ERA5 normal, although the RR is a weekly average. That understates the slope, so the anchor errs conservative."
+   "source": "Azhar et al. 2014, PLOS ONE 9(3):e91831 - mortality rate ratio in the peak heat week (19-25 May 2010); the paper gives 1.76 and 2.12 depending on the reference period",
+   "reason": "Kept for reference, not used. It is a single extreme episode under a different exposure definition, so using it next to the de Bont estimates for other cities would make Ahmedabad look about twice as sensitive as the same method gives."
   },
   {
    "id": "multicity-99p-5day",
-   "use": true, "outcome": "mort", "cities": ["Chennai", "Hyderabad"],
+   "use": false, "outcome": "mort", "cities": ["Chennai", "Hyderabad"],
    "rr": 1.332, "rr_ci": [1.186, 1.498],
    "exposure": {"type": "imd_heat_wave", "a_ref": 0.5},
-   "source": "Multi-city study 'Impact of heatwaves on all-cause mortality in India' (ScienceDirect pii S0160412024000473) - pooled +33.2% (95% CI 18.6 to 49.8) mortality when mean temperature exceeded the 99th percentile for at least 5 consecutive days; observed in Ahmedabad, Chennai, Delhi, Hyderabad, Kolkata and Varanasi",
-   "caveat": "Pooled across cities, not city-specific. a_ref = 0.5 (IMD Heat Wave onset) is an assumption: sustained >99th-percentile heat is treated as at least Heat Wave severity."
+   "source": "de Bont et al. 2024 - pooled +33.2% (95% CI 18.6 to 49.8) for mean temperature above the 99th percentile for at least 5 consecutive days; only occurred in 6 of the 10 cities (not Mumbai)",
+   "reason": "Kept for reference, not used. A stricter definition than the one applied to the other cities; switching it on would give inconsistent cities."
   },
   {
    "id": "hyderabad-tmax40",
    "use": false, "outcome": "mort", "cities": ["Hyderabad"],
    "rr": 1.16,
    "source": "Summer temperature and all-cause mortality 2006-2015, Hyderabad (PMC8843295) - about +16% mean daily deaths at Tmax >= 40 C",
-   "reason": "Exposure is an absolute temperature threshold, not a departure from the city's normal, so it cannot be mapped onto the model's anomaly scale from this data alone. Kept for reference."
+   "reason": "Exposure is an absolute temperature threshold, not a departure from the city's normal, so it cannot be mapped onto the model's anomaly scale from this data alone."
   }
  ],
  "not_calibrated": {
-  "Mumbai": "No city-specific published RR entered. The multi-city study found Mumbai among the weakest heat-mortality associations, so the pooled value is not applied. Add observed data or an anchor to calibrate.",
-  "hosp": "No published heat-admissions RR entered for any of the four cities. Hospitalization stays on the default until admissions data is added to observed.csv."
+  "hosp": "No published heat-admissions RR for these Indian cities was found that maps onto this model (a neonatal-ICU study in one Ahmedabad hospital and European studies do not represent city-wide admissions). Hospitalization stays on the default until admissions data is added to observed.csv."
  },
  "baselines": {
-  "Ahmedabad": {"deaths_per_day": 100.6, "note": "3,118 all-cause deaths in May, mean of 2009 and 2011 (Azhar et al. 2014) divided by 31 days; May only, pre-2012 city limits"},
-  "Hyderabad": {"deaths_per_day": 100.1, "note": "mean daily all-cause deaths on summer days 2006-2015 (PMC8843295); population has grown since"}
+  "Ahmedabad": {"deaths_per_day": 122, "note": "mean daily all-cause deaths, 2008 to June 2019 (de Bont et al. 2024, Table 1); population has grown since"},
+  "Chennai": {"deaths_per_day": 164, "note": "mean daily all-cause deaths, 2010 to 2019 (de Bont et al. 2024, Table 1)"},
+  "Hyderabad": {"deaths_per_day": 78, "note": "mean daily all-cause deaths, 2008 to June 2011 (de Bont et al. 2024, Table 1); population has grown since"},
+  "Mumbai": {"deaths_per_day": 251, "note": "mean daily all-cause deaths, 2009 to Nov 2015 (de Bont et al. 2024, Table 1); population has grown since"}
  }
 }
