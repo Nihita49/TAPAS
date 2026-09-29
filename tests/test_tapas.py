@@ -390,8 +390,11 @@ def test_anchor_block_math_and_guards():
 
 def test_shipped_calibration_is_honest_about_uncalibrated_outputs():
     d = _json.load(open(cal.CAL_FILE))
-    assert d["cities"]["Ahmedabad"]["mort"]["basis"] == "published-anchor"
-    assert "mort" not in d["cities"]["Mumbai"] and d["cities"]["Mumbai"]["mort_note"]
+    for c in ("Ahmedabad", "Mumbai", "Chennai", "Hyderabad"):
+        assert d["cities"][c]["mort"]["basis"] == "published-anchor"
+    # same study and definition everywhere; Mumbai's published effect is much weaker than Ahmedabad's
+    assert d["cities"]["Mumbai"]["mort"]["beta_a"] < d["cities"]["Ahmedabad"]["mort"]["beta_a"] / 3
+    assert d["cities"]["Ahmedabad"]["mort"]["anchor_id"].startswith("debont2024-97p-2d")
     for c in d["cities"].values():
         assert "hosp" not in c and c["hosp_note"]          # no admissions data => no calibrated hosp
 
@@ -448,17 +451,20 @@ def test_snapshot_carries_calibrated_block_with_basis():
     assert all("mortality_rr" in f for f in snap["forecast"])
 
 
-def test_uncalibrated_city_has_no_calibrated_block():
+def test_uncalibrated_outcome_has_no_calibrated_block():
     city = "Mumbai"; w = wards_with_sat(city)[0]
     rec = app.synth_weather(19.0, 72.8) if hasattr(app, "synth_weather") else None
     snap = app.compute_snapshot(city, w, rec, dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
-    assert snap["available"] and snap["mortality"]["calibrated"] is None
+    assert snap["available"]
+    assert snap["mortality"]["calibrated"] is not None and snap["mortality"]["calibrated"]["basis"] == "published-anchor"
+    assert snap["hospitalisation"]["calibrated"] is None          # no admissions data or anchor yet
 
 
 def test_calibration_endpoints():
     j = client.get("/api/calibration").json()
     assert j["cities"]["Ahmedabad"]["mort"]["basis"] == "published-anchor"
-    assert j["cities"]["Mumbai"]["mort"]["basis"] == "default"
+    assert j["cities"]["Mumbai"]["mort"]["basis"] == "published-anchor"
+    assert j["cities"]["Mumbai"]["hosp"]["basis"] == "default" and j["cities"]["Mumbai"]["hosp"]["note"]
     assert client.post("/api/calibration/reload").status_code == 200
 
 
