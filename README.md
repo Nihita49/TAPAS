@@ -75,8 +75,10 @@ Risk is **anomaly-driven**: a ward escalates when today's heat exceeds *its own 
 ### The index
 
 ```
-HTSI = (wH · H) × (wV · V) × (wE · E) × (1 − wAC · AC)
+HTSI = H × V × E × (1 − AC)
 ```
+
+The code applies an optional weight to each factor (all default to 1.0, so the formula above is what runs out of the box). The weights can be changed through `POST /api/weights`.
 
 | Factor | What it captures | How it's computed |
 |---|---|---|
