@@ -1,0 +1,8 @@
+# TAPAS observed health data. One row per city per day. Leave a cell empty if unknown.
+# city: Mumbai | Ahmedabad | Chennai | Hyderabad (exactly as in the app)
+# date: YYYY-MM-DD (local date)
+# deaths: all-cause deaths registered that day within the city (municipal birth-and-death registrar)
+# admissions: heat-related-illness admissions or ER visits that day (NCDC IHIP line list, or hospital records)
+# source: free text, e.g. "AMC registrar" / "IHIP export 2026-06-01"
+# Lines starting with # are ignored. Fitting needs >= 365 daily rows per city and outcome.
+city,date,deaths,admissions,source
