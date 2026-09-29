@@ -643,8 +643,11 @@ function factorBars(s){
 function wardHTML(d){const s=d.snapshot,w=d.ward;
   if(!s||!s.available)return `<div class="w-head"><h2>Ward ${esc(w.label)}</h2></div><p>Insufficient data.</p>`;
   const c=s.current,env=s.environment.satellite,meas=s.measures;
+  const calLine=m=>{const k=m.calibrated;
+    if(!k)return `<div class="hint" style="margin:3px 0 0 4px">Uncalibrated: default coefficients, no local health data behind this output.</div>`;
+    return `<div class="hint" style="margin:3px 0 0 4px">Calibrated: <b>${k.excess_pct>=0?"+":""}${k.excess_pct}%</b> vs a normal day (RR ${k.rr}) · ${esc(k.label)}${k.admissions_used?" · uses admissions from "+esc(k.admissions_date):""}</div>`;};
   const mk=(m,lab)=>`<div class="risk" style="border-left-color:${BCOL[m.band]}"><b style="min-width:150px">${lab}</b>
-    <span class="badge bg${m.band}">${esc(m.band)}</span><span class="hint">~${Math.round(m.probability*100)}% above seasonal baseline</span></div>`;
+    <span class="badge bg${m.band}">${esc(m.band)}</span><span class="hint">~${Math.round(m.probability*100)}% above seasonal baseline</span></div>${calLine(m)}`;
   const gauge=`<svg class="gauge" viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="#eef2f7" stroke-width="11"/>
     <circle cx="60" cy="60" r="48" fill="none" stroke="${BCOL[c.band]}" stroke-width="11" stroke-linecap="round"
       stroke-dasharray="${(2*Math.PI*48).toFixed(1)}" stroke-dashoffset="${(2*Math.PI*48*(1-Math.min(1,c.htsi/0.5))).toFixed(1)}" transform="rotate(-90 60 60)"/>
