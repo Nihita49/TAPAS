@@ -32,6 +32,7 @@ from weather import fetch_many, fetch_many_paced, synth_weather
 from measures import admin_actions, user_sms
 from measures_i18n import personal_multilang, personal_oneline, emergency_multilang
 import pg_store
+import calibration
 
 
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -511,6 +512,72 @@ def _risk_probs(a, surge, Hw, Ew, Vw, ACw):
     as HTSI; AC lowers risk with a negative coefficient."""
     m,h,_,_,_,_=_risk_terms(a,surge,Hw,Ew,Vw,ACw)
     return m,h
+
+# ------------------------------------------------------------ calibration layer
+# Ties mortality / hospitalisation to historical health data (see calibration.py).
+# The logistic outputs above are unchanged; a calibrated relative risk (RR vs a
+# normal day) is ADDED next to them, labelled with the basis it rests on:
+# fitted to observed data | published-anchor prior | none (default coefficients).
+_MULT_CACHE={}
+def _ward_M(city, ward):
+    env=env_terms(ward.get("sat"), city)
+    if not env: return None
+    ac,_=ac_for_ward(city, env, ward.get("sat"))
+    return vulnerability(city, ward)["v"]*env["E"]*(1.0-ac)
+
+def ward_multiplier(city, ward):
+    """Ward's V x E x (1-AC) relative to the city median, clamped to [0.5, 2.0].
+    Scales the city-level excess risk to the ward. City data can calibrate the
+    level only; ward-to-ward differences still come from the modelled factors."""
+    key=(city, tuple(sorted(W_V.items())), V_SCALE["lo"], V_SCALE["hi"])
+    med=_MULT_CACHE.get(key)
+    if med is None:
+        ms=[m for m in (_ward_M(city,w) for w in STORE.cities[city]["wards"]) if m is not None and m>0]
+        med=float(np.median(ms)) if ms else 0.0
+        if len(_MULT_CACHE)>50: _MULT_CACHE.clear()
+        _MULT_CACHE[key]=med
+    m=_ward_M(city, ward)
+    if not med or m is None: return 1.0
+    return clamp(m/med,0.5,2.0)
+
+def daily_heat_features(city, series, day):
+    """Daily exposure used for calibration, identical at fit time and run time:
+    (a, surge, daymax) where a = IMD-scaled departure of the day's max Tmax from
+    the city normal and surge = UTCI surge term at the day's PEAK UTCI.
+    Returns None if the day has no observations."""
+    obs=[o for o in series if o["t"].date()==day and o["tair"] is not None]
+    if not obs: return None
+    daymax=max(o["tair"] for o in obs)
+    norm=_mean_tmax(city, day.month)
+    a=_a_of(daymax-norm) if norm is not None else 0.0
+    nan=float("nan")
+    u=_utci_batch([o["tair"] for o in obs],
+                  [o["rh"] if o["rh"] is not None else nan for o in obs],
+                  [o["wind"] if o["wind"] is not None else nan for o in obs],
+                  [o["sw"] if o["sw"] is not None else nan for o in obs],
+                  [o["t"].hour for o in obs])
+    u=u[~np.isnan(u)]
+    surge=clamp((float(u.max())-36.0)/10.0) if u.size else 0.0
+    return a, surge, daymax
+
+def _cal_label(city, blk):
+    if blk["basis"]=="fitted":
+        p=blk.get("period") or ["?","?"]
+        return "Fitted to observed %s data, %s to %s (%d days)"%(city,p[0],p[1],blk.get("n_days",0))
+    return "Prior anchored to a published RR of %s (%s); not fitted to local data"%(blk.get("rr_ref"),blk.get("anchor_id"))
+
+def _cal_out(city, outcome, a, surge, mult, adm_z=None, adm_date=None):
+    r=calibration.calibrated_rr(city, outcome, a, surge, mult, adm_z)
+    if not r: return None
+    blk=calibration.city_cal(city, outcome)
+    r["label"]=_cal_label(city, blk)
+    if blk.get("baseline_per_day") is not None and outcome=="mort":
+        r["city_baseline_deaths_per_day"]=blk["baseline_per_day"]
+        r["city_excess_deaths_per_day"]=round(blk["baseline_per_day"]*(r["rr_city"]-1.0),1)
+        r["baseline_note"]=blk.get("baseline_note")
+    if r["admissions_used"]: r["admissions_date"]=adm_date
+    if blk["basis"]=="published-anchor": r["caveat"]=blk.get("caveat")
+    return r
   
 _SNAP_CACHE={}
 def cached_snapshot(city, ward, rec, now):
@@ -550,6 +617,14 @@ def compute_snapshot(city, ward, rec, now):
     surge=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
     mort,hosp,mt,ht,zm,zh=_risk_terms(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
     mb=rband(mort)[0]; hb=rband(hosp)[0]
+    cal_m=cal_h=None
+    if calibration.status().get("cities"):
+        df=daily_heat_features(city, series, now.date())
+        if df:
+            mult=ward_multiplier(city, ward)
+            adm_z,adm_date=calibration.latest_admissions_z(city, now)
+            cal_m=_cal_out(city,"mort",df[0],df[1],mult,adm_z,adm_date)
+            cal_h=_cal_out(city,"hosp",df[0],df[1],mult)
     fc=forecast(city,ward,rec,now,env,ac)
     src=rec.get("generationtime_utc") or now.isoformat()
     ac_ref=STORE.cities[city]["config"]["ac_ref"]
@@ -581,8 +656,8 @@ def compute_snapshot(city, ward, rec, now):
                      "modis":(STORE.cities[city].get("modis") or {}).get("summary"),
                      "modis_provenance":(STORE.cities[city].get("modis") or {}).get("provenance")},
       "factors":factors,
-      "mortality":{"probability":round(mort,3),"band":mb},
-      "hospitalisation":{"probability":round(hosp,3),"band":hb},
+      "mortality":{"probability":round(mort,3),"band":mb,"calibrated":cal_m},
+      "hospitalisation":{"probability":round(hosp,3),"band":hb,"calibrated":cal_h},
       "forecast":fc,
       "measures":{"admin":admin_actions(curband),"user":user_sms(curband),
                  "user_i18n":personal_multilang(curband,city),"level":curband,
@@ -630,6 +705,7 @@ def forecast(city,ward,rec,now,env,ac):
         days.setdefault(t.date().isoformat(),[]).append({"h":htsi,"u":u,"tair":o["tair"],
                                                          "surge":surge,"base":base,"conf":conf})
     out=[]
+    _mult=None
     for d,arr in sorted(days.items()):
         dd=dt.date.fromisoformat(d)
         baseD=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(dd.month))
@@ -646,6 +722,13 @@ def forecast(city,ward,rec,now,env,ac):
                     "peak_mortality_band":rband(mort)[0],"mortality_prob":round(mort,3),
                     "peak_hosp_band":rband(hosp)[0],"hosp_prob":round(hosp,3),
                     "confidence":round(sum(x["conf"] for x in arr)/len(arr),2)})
+        if calibration.status().get("cities"):
+            if _mult is None: _mult=ward_multiplier(city, ward)
+            sg=clamp((max(x["u"] for x in arr)-36.0)/10.0)
+            cm=calibration.calibrated_rr(city,"mort",a,sg,_mult)
+            ch=calibration.calibrated_rr(city,"hosp",a,sg,_mult)
+            if cm: out[-1].update({"mortality_rr":cm["rr"],"mortality_excess_pct":cm["excess_pct"],"mortality_cal_basis":cm["basis"]})
+            if ch: out[-1].update({"hosp_rr":ch["rr"],"hosp_excess_pct":ch["excess_pct"],"hosp_cal_basis":ch["basis"]})
     return out
 
 # ------------------------------------------------------------ scheduler + alert
@@ -1111,6 +1194,17 @@ class WgtReq(BaseModel):
     sym_anom:bool=None
     measure_effects:dict=None
     reset:bool=None
+@app.get("/api/calibration")
+def get_calibration():
+    """Which city/outcome is calibrated, on what basis, with fit diagnostics."""
+    return calibration.public_status()
+
+@app.post("/api/calibration/reload")
+def reload_calibration():
+    """Re-read data/calibration.json (after running calibrate_risk.py) without a restart."""
+    calibration.load_calibration(); _SNAP_CACHE.clear()
+    return calibration.public_status()
+
 @app.get("/api/weights")
 def get_weights():
     return {"weights":{k:WEIGHTS[k] for k in WEIGHTS},
@@ -1261,7 +1355,8 @@ def export_city_csv(city: str):
     now=dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     cols=["city","ward","label","available","htsi","htsi_band","mort_band","mort_prob","hosp_band","hosp_prob",
           "z_mort","z_hosp","mort_intercept","mort_anom","mort_surge","mort_H","mort_E","mort_V","mort_AC",
-          "hosp_intercept","hosp_anom","hosp_surge","hosp_H","hosp_E","hosp_V","hosp_AC","H","V","E","AC"]
+          "hosp_intercept","hosp_anom","hosp_surge","hosp_H","hosp_E","hosp_V","hosp_AC","H","V","E","AC",
+          "mort_cal_rr","mort_cal_excess_pct","mort_cal_basis","hosp_cal_rr","hosp_cal_excess_pct","hosp_cal_basis"]
     buf=io.StringIO(); wtr=csv.writer(buf)
     wtr.writerow(cols)
     for w in STORE.cities[city]["wards"]:
@@ -1276,6 +1371,9 @@ def export_city_csv(city: str):
                   rt["mort"]["intercept"],rt["mort"]["anom"],rt["mort"]["surge"],rt["mort"]["H"],rt["mort"]["E"],rt["mort"]["V"],rt["mort"]["AC"],
                   rt["hosp"]["intercept"],rt["hosp"]["anom"],rt["hosp"]["surge"],rt["hosp"]["H"],rt["hosp"]["E"],rt["hosp"]["V"],rt["hosp"]["AC"],
                   f["H"],f["V"],f["E"],f["AC"]]
+            cm=snap["mortality"].get("calibrated") or {}; ch=snap["hospitalisation"].get("calibrated") or {}
+            row+=[cm.get("rr",""),cm.get("excess_pct",""),cm.get("basis","default"),
+                  ch.get("rr",""),ch.get("excess_pct",""),ch.get("basis","default")]
         else:
             row+=[0]+[""]*(len(cols)-3)
         wtr.writerow(row)
