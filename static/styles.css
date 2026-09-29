@@ -332,3 +332,10 @@ path.leaflet-interactive.pulse{animation:wardPulse .55s ease-out 2;stroke:#1467f
 .wtab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .wtab:hover:not(.on){color:var(--ink)}
 .wtabpanel.hidden{display:none}
+/* historical-data calibration chips */
+.hchip{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;border:1px solid;white-space:nowrap}
+.hchip.pub{background:#eaf2ff;color:#0b4fb3;border-color:#c7dcff}
+.hchip.fit{background:#e8f7ee;color:#17693a;border-color:#bfe5cd}
+.hchip.none{background:#f3f5f8;color:#66768c;border-color:#dfe5ec}
+.hline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:3px 0 0 4px}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;font-size:12.5px}
