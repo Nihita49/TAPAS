@@ -321,3 +321,174 @@ def test_weights_move_logistics_and_risk_bands_exposed(monkeypatch):
     j=client.post("/api/weights", json={"reset":True}).json()
     assert j["risk_band_t"]==j["risk_band_t_defaults"] and j["weights"]["H"]==1.0
     assert "independently calibrated" in j["note"]
+
+
+# ---------- calibration layer (historical health data) ----------
+import numpy as np, json as _json
+import calibration as cal
+
+
+def _synth(n=1100, beta_a=0.6, beta_s=0.0, seed=7, base=100.0, adm_gamma=0.0):
+    rng = np.random.default_rng(seed)
+    d0 = dt.date(2019, 1, 1)
+    dates = [(d0 + dt.timedelta(days=i)).isoformat() for i in range(n)]
+    doy = np.array([(d0 + dt.timedelta(days=i)).timetuple().tm_yday for i in range(n)], float)
+    # hot season Apr-Jun produces a > 0 on about a fifth of days
+    a = np.clip(rng.normal(0, 0.25, n) + 0.5 * np.exp(-((doy - 135) / 25.0) ** 2), 0, 1)
+    s = np.clip(a * 0.6 + rng.normal(0, 0.05, n), 0, 1)
+    mu = base * np.exp(beta_a * a + beta_s * s + 0.1 * np.sin(2 * np.pi * doy / 365.25))
+    return dates, a, s, mu, rng
+
+
+def test_poisson_fit_recovers_heat_slope():
+    dates, a, s, mu, rng = _synth(beta_a=0.6)
+    y = rng.poisson(mu)
+    blk = cal.fit_outcome(dates, y, a, s)
+    assert blk["basis"] == "fitted"
+    assert abs(blk["beta_a"] - 0.6) < 3 * blk["se_a"] + 0.05
+    assert 0.9 * 100 < blk["baseline_per_day"] < 1.15 * 100
+
+
+def test_fit_rejected_when_no_heat_signal():
+    dates, a, s, mu, rng = _synth(beta_a=0.0)
+    y = rng.poisson(mu)
+    blk = cal.fit_outcome(dates, y, a, s)
+    assert "rejected" in blk and "basis" not in blk
+
+
+def test_fit_rejected_on_too_little_data():
+    dates, a, s, mu, rng = _synth(n=200)
+    blk = cal.fit_outcome(dates, rng.poisson(mu), a, s)
+    assert "rejected" in blk and "rows" in blk["rejected"]
+
+
+def test_admissions_gamma_only_kept_when_informative():
+    dates, a, s, mu, rng = _synth(beta_a=0.5)
+    z = rng.normal(0, 0.4, len(dates))                     # extra latent driver visible in admissions
+    y = rng.poisson(mu * np.exp(0.5 * z))
+    adm = np.expm1(np.log1p(60) + z)                       # lagged admissions carry that driver
+    blk = cal.fit_outcome(dates, y, a, s, adm_lag=adm)
+    assert blk["basis"] == "fitted" and blk.get("gamma_adm", 0) > 0.2
+    assert "adm_log_mean" in blk
+    # unrelated admissions must not be adopted
+    blk2 = cal.fit_outcome(dates, rng.poisson(mu), a, s, adm_lag=rng.uniform(20, 80, len(dates)))
+    assert "gamma_adm" not in blk2
+
+
+def test_anchor_block_math_and_guards():
+    an = {"id": "x", "rr": 1.5, "exposure": {"type": "imd_heat_wave", "a_ref": 0.5}, "source": "s"}
+    b = cal.anchor_block(an, "Ahmedabad", app._mean_tmax, app._a_of)
+    assert abs(b["beta_a"] - np.log(1.5) / 0.5) < 1e-3 and b["basis"] == "published-anchor"
+    # a_ref derived from a stated Tmax and the city's own ERA5 May normal
+    an2 = {"id": "y", "rr": 1.76, "exposure": {"type": "tmax_month", "tmax_c": 46.8, "month": 5}}
+    b2 = cal.anchor_block(an2, "Ahmedabad", app._mean_tmax, app._a_of)
+    assert 0.8 < b2["a_ref"] < 0.9
+    # an exposure at/below normal cannot define a slope
+    an3 = {"id": "z", "rr": 1.16, "exposure": {"type": "tmax_month", "tmax_c": 30.0, "month": 5}}
+    assert cal.anchor_block(an3, "Ahmedabad", app._mean_tmax, app._a_of) is None
+
+
+def test_shipped_calibration_is_honest_about_uncalibrated_outputs():
+    d = _json.load(open(cal.CAL_FILE))
+    assert d["cities"]["Ahmedabad"]["mort"]["basis"] == "published-anchor"
+    assert "mort" not in d["cities"]["Mumbai"] and d["cities"]["Mumbai"]["mort_note"]
+    for c in d["cities"].values():
+        assert "hosp" not in c and c["hosp_note"]          # no admissions data => no calibrated hosp
+
+
+def test_calibrated_rr_monotone_capped_and_ward_scaled(monkeypatch):
+    monkeypatch.setattr(cal, "_CAL", {"cities": {"X": {"mort": {"basis": "fitted", "beta_a": 0.7, "beta_s": 0.0}}}})
+    lo = cal.calibrated_rr("X", "mort", 0.2, 0.0)["rr"]
+    hi = cal.calibrated_rr("X", "mort", 0.9, 0.0)["rr"]
+    assert 1.0 < lo < hi
+    assert cal.calibrated_rr("X", "mort", 0.9, 0.0, ward_mult=2.0)["rr"] > hi
+    assert cal.calibrated_rr("X", "mort", 0.9, 0.0, ward_mult=0.5)["rr"] < hi
+    monkeypatch.setitem(cal._CAL["cities"]["X"]["mort"], "beta_a", 9.0)
+    assert cal.calibrated_rr("X", "mort", 1.0, 0.0, ward_mult=2.0)["rr"] <= cal.RR_CAP
+    assert cal.calibrated_rr("X", "hosp", 0.9, 0.0) is None    # uncalibrated outcome stays None
+    assert cal.calibrated_rr("Nowhere", "mort", 0.9, 0.0) is None
+
+
+def test_admissions_nowcast_only_when_fresh(monkeypatch):
+    blk = {"basis": "fitted", "beta_a": 0.5, "gamma_adm": 0.3, "adm_log_mean": 4.0}
+    monkeypatch.setattr(cal, "_CAL", {"cities": {"X": {"mort": blk}}})
+    now = dt.datetime(2026, 6, 10, 12)
+    obs = {"X": {"2026-06-09": {"deaths": None, "admissions": 200.0}}}
+    z, d = cal.latest_admissions_z("X", now, obs)
+    assert d == "2026-06-09" and z > 1.0
+    obs_old = {"X": {"2026-05-01": {"deaths": None, "admissions": 200.0}}}
+    assert cal.latest_admissions_z("X", now, obs_old) == (None, None)
+
+
+def test_ward_multiplier_bounded_and_median_is_one():
+    city = "Ahmedabad"
+    ws = wards_with_sat(city)[:40]
+    ms = [app.ward_multiplier(city, w) for w in ws]
+    assert all(0.5 <= m <= 2.0 for m in ms)
+    assert min(ms) < max(ms)
+
+
+def test_snapshot_carries_calibrated_block_with_basis():
+    city = "Ahmedabad"; w = wards_with_sat(city)[0]
+    now = dt.datetime(2026, 5, 20, 14)
+    rec = {"hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
+                      "wind_speed_10m": [], "shortwave_radiation": []}}
+    for h in range(72):
+        t = dt.datetime(2026, 5, 19, 0) + dt.timedelta(hours=h)
+        rec["hourly"]["time"].append(t.strftime("%Y-%m-%dT%H:%M"))
+        rec["hourly"]["temperature_2m"].append(33 + 12 * max(0, np.sin(np.pi * (t.hour - 6) / 14)) if 6 <= t.hour <= 20 else 33)
+        rec["hourly"]["relative_humidity_2m"].append(30); rec["hourly"]["wind_speed_10m"].append(3)
+        rec["hourly"]["shortwave_radiation"].append(600 if 8 <= t.hour <= 17 else 0)
+    snap = app.compute_snapshot(city, w, rec, now)
+    assert snap["available"]
+    m = snap["mortality"]; c = m["calibrated"]
+    assert c and c["basis"] == "published-anchor" and c["rr"] > 1.0 and c["label"]
+    assert snap["hospitalisation"]["calibrated"] is None           # no admissions data yet
+    assert "probability" in m and "band" in m                        # original output untouched
+    assert all("mortality_rr" in f for f in snap["forecast"])
+
+
+def test_uncalibrated_city_has_no_calibrated_block():
+    city = "Mumbai"; w = wards_with_sat(city)[0]
+    rec = app.synth_weather(19.0, 72.8) if hasattr(app, "synth_weather") else None
+    snap = app.compute_snapshot(city, w, rec, dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
+    assert snap["available"] and snap["mortality"]["calibrated"] is None
+
+
+def test_calibration_endpoints():
+    j = client.get("/api/calibration").json()
+    assert j["cities"]["Ahmedabad"]["mort"]["basis"] == "published-anchor"
+    assert j["cities"]["Mumbai"]["mort"]["basis"] == "default"
+    assert client.post("/api/calibration/reload").status_code == 200
+
+
+def test_build_fits_observed_data_end_to_end(monkeypatch, tmp_path):
+    """calibrate_risk.build(): synthetic 'observed' deaths + a fake archive fetch
+    must give a fitted block that replaces the anchor for that city."""
+    import calibrate_risk as cr
+    city = "Ahmedabad"
+    dates, a_true, s_true, mu, rng = _synth(n=1100, beta_a=0.6)
+    d0 = dt.date.fromisoformat(dates[0])
+    # fake archive whose daily-max maps (via the model's own _a_of) to a_true
+    def fake_fetch(lat, lon, start, end):
+        H = {"time": [], "temperature_2m": [], "relative_humidity_2m": [], "wind_speed_10m": [], "shortwave_radiation": []}
+        d = start
+        while d <= end:
+            a = a_true[(d - d0).days]
+            norm = app._mean_tmax(city, d.month)
+            # invert _a_of on its linear pieces
+            dep = 0.0 if a <= 0 else (a / 0.5 * app.IMD_HW_DEP if a <= 0.5 else
+                                      app.IMD_HW_DEP + (a - 0.5) / 0.5 * (app.IMD_SHW_DEP - app.IMD_HW_DEP))
+            for h in range(24):
+                H["time"].append("%sT%02d:00" % (d.isoformat(), h))
+                H["temperature_2m"].append(norm + dep - (0 if h == 14 else 3))
+                H["relative_humidity_2m"].append(40); H["wind_speed_10m"].append(3)
+                H["shortwave_radiation"].append(500)
+            d += dt.timedelta(days=1)
+        return {"hourly": H}
+    rows = {dates[i]: {"deaths": float(rng.poisson(mu[i])), "admissions": None} for i in range(len(dates))}
+    res = cr.build(fetch=fake_fetch, observed={city: rows})
+    blk = res["cities"][city]["mort"]
+    assert blk["basis"] == "fitted" and blk["beta_a"] > 0.3
+    assert blk["diagnostics"]["pearson_r_obs_vs_pred"] > 0.3
+    assert res["cities"]["Chennai"]["mort"]["basis"] == "published-anchor"   # untouched
