@@ -1,0 +1,74 @@
+{
+ "generated": "2026-09-29T22:53Z",
+ "cities": {
+  "Mumbai": {
+   "mort_note": "No city-specific published RR entered. The multi-city study found Mumbai among the weakest heat-mortality associations, so the pooled value is not applied. Add observed data or an anchor to calibrate.",
+   "hosp_note": "No published heat-admissions RR entered for any of the four cities. Hospitalization stays on the default until admissions data is added to observed.csv."
+  },
+  "Ahmedabad": {
+   "mort": {
+    "basis": "published-anchor",
+    "anchor_id": "ahmedabad-2010-peak-week",
+    "beta_a": 0.6713,
+    "beta_s": 0.0,
+    "a_ref": 0.842,
+    "rr_ref": 1.76,
+    "rr_ci": [
+     1.67,
+     1.83
+    ],
+    "source": "Azhar et al. 2014, PLOS ONE 9(3):e91831 - all-cause mortality rate ratio in the peak heat week (19-25 May 2010), Ahmedabad; the paper reports 1.76 and 2.12 depending on the reference period, the lower is used",
+    "caveat": "a_ref is taken from the single hottest reading of the episode (46.8 C) against Ahmedabad's May ERA5 normal, although the RR is a weekly average. That understates the slope, so the anchor errs conservative.",
+    "rr_at_a0.5": 1.399,
+    "rr_at_a1.0": 1.957,
+    "baseline_per_day": 100.6,
+    "baseline_note": "3,118 all-cause deaths in May, mean of 2009 and 2011 (Azhar et al. 2014) divided by 31 days; May only, pre-2012 city limits"
+   },
+   "hosp_note": "No published heat-admissions RR entered for any of the four cities. Hospitalization stays on the default until admissions data is added to observed.csv."
+  },
+  "Chennai": {
+   "mort": {
+    "basis": "published-anchor",
+    "anchor_id": "multicity-99p-5day",
+    "beta_a": 0.5734,
+    "beta_s": 0.0,
+    "a_ref": 0.5,
+    "rr_ref": 1.332,
+    "rr_ci": [
+     1.186,
+     1.498
+    ],
+    "source": "Multi-city study 'Impact of heatwaves on all-cause mortality in India' (ScienceDirect pii S0160412024000473) - pooled +33.2% (95% CI 18.6 to 49.8) mortality when mean temperature exceeded the 99th percentile for at least 5 consecutive days; observed in Ahmedabad, Chennai, Delhi, Hyderabad, Kolkata and Varanasi",
+    "caveat": "Pooled across cities, not city-specific. a_ref = 0.5 (IMD Heat Wave onset) is an assumption: sustained >99th-percentile heat is treated as at least Heat Wave severity.",
+    "rr_at_a0.5": 1.332,
+    "rr_at_a1.0": 1.774
+   },
+   "hosp_note": "No published heat-admissions RR entered for any of the four cities. Hospitalization stays on the default until admissions data is added to observed.csv."
+  },
+  "Hyderabad": {
+   "mort": {
+    "basis": "published-anchor",
+    "anchor_id": "multicity-99p-5day",
+    "beta_a": 0.5734,
+    "beta_s": 0.0,
+    "a_ref": 0.5,
+    "rr_ref": 1.332,
+    "rr_ci": [
+     1.186,
+     1.498
+    ],
+    "source": "Multi-city study 'Impact of heatwaves on all-cause mortality in India' (ScienceDirect pii S0160412024000473) - pooled +33.2% (95% CI 18.6 to 49.8) mortality when mean temperature exceeded the 99th percentile for at least 5 consecutive days; observed in Ahmedabad, Chennai, Delhi, Hyderabad, Kolkata and Varanasi",
+    "caveat": "Pooled across cities, not city-specific. a_ref = 0.5 (IMD Heat Wave onset) is an assumption: sustained >99th-percentile heat is treated as at least Heat Wave severity.",
+    "rr_at_a0.5": 1.332,
+    "rr_at_a1.0": 1.774,
+    "baseline_per_day": 100.1,
+    "baseline_note": "mean daily all-cause deaths on summer days 2006-2015 (PMC8843295); population has grown since"
+   },
+   "hosp_note": "No published heat-admissions RR entered for any of the four cities. Hospitalization stays on the default until admissions data is added to observed.csv."
+  }
+ },
+ "notes": [
+  "Calibrated output is a relative risk vs a normal day for the city's typical ward; ward differences scale the excess by V x E x (1-AC) relative to the city median and are NOT validated by city data.",
+  "Basis per output: fitted (observed data) > published-anchor (prior) > default (unvalidated)."
+ ]
+}
