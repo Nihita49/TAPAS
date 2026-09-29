@@ -560,6 +560,18 @@ def daily_heat_features(city, series, day):
     surge=clamp((float(u.max())-36.0)/10.0) if u.size else 0.0
     return a, surge, daymax
 
+def features_for_day_or_next(city, series, day):
+    """daily_heat_features() for `day`; when the series has no observation on that
+    calendar date (the live 3-hourly forecast starts at the next slot, so late in
+    the UTC evening nothing is dated today) use the nearest date at or after it,
+    else the latest date available. Returns (features, date_used) or (None, None)."""
+    f=daily_heat_features(city, series, day)
+    if f: return f, day
+    dates=sorted({o["t"].date() for o in series if o["tair"] is not None})
+    if not dates: return None, None
+    d=next((x for x in dates if x>=day), dates[-1])
+    return daily_heat_features(city, series, d), d
+
 def _cal_label(city, blk):
     if blk["basis"]=="fitted":
         p=blk.get("period") or ["?","?"]
@@ -619,12 +631,14 @@ def compute_snapshot(city, ward, rec, now):
     mb=rband(mort)[0]; hb=rband(hosp)[0]
     cal_m=cal_h=None
     if calibration.status().get("cities"):
-        df=daily_heat_features(city, series, now.date())
+        df,df_day=features_for_day_or_next(city, series, now.date())
         if df:
             mult=ward_multiplier(city, ward)
             adm_z,adm_date=calibration.latest_admissions_z(city, now)
             cal_m=_cal_out(city,"mort",df[0],df[1],mult,adm_z,adm_date)
             cal_h=_cal_out(city,"hosp",df[0],df[1],mult)
+            for _c in (cal_m,cal_h):
+                if _c: _c["exposure_day"]=df_day.isoformat()
     fc=forecast(city,ward,rec,now,env,ac)
     src=rec.get("generationtime_utc") or now.isoformat()
     ac_ref=STORE.cities[city]["config"]["ac_ref"]
