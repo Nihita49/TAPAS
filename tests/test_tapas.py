@@ -498,3 +498,21 @@ def test_build_fits_observed_data_end_to_end(monkeypatch, tmp_path):
     assert blk["basis"] == "fitted" and blk["beta_a"] > 0.3
     assert blk["diagnostics"]["pearson_r_obs_vs_pred"] > 0.3
     assert res["cities"]["Chennai"]["mort"]["basis"] == "published-anchor"   # untouched
+
+
+def test_calibrated_block_survives_series_with_no_observation_today():
+    """Live OpenWeather data is 3-hourly and starts at the next slot, so late in
+    the UTC day nothing is dated 'today'. The calibrated block must still appear,
+    using the nearest upcoming day, and say which day it used."""
+    city = "Ahmedabad"; w = wards_with_sat(city)[0]
+    rec = {"hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
+                      "wind_speed_10m": [], "shortwave_radiation": []}}
+    for h in range(0, 120, 3):
+        t = dt.datetime(2026, 5, 21, 0, 0) + dt.timedelta(hours=h)
+        rec["hourly"]["time"].append(t.strftime("%Y-%m-%dT%H:%M"))
+        rec["hourly"]["temperature_2m"].append(44 if 6 <= t.hour <= 15 else 34)
+        rec["hourly"]["relative_humidity_2m"].append(30); rec["hourly"]["wind_speed_10m"].append(10)
+        rec["hourly"]["shortwave_radiation"].append(500)
+    snap = app.compute_snapshot(city, w, rec, dt.datetime(2026, 5, 20, 23, 40))
+    c = snap["mortality"]["calibrated"]
+    assert c and c["rr"] > 1.0 and c["exposure_day"] == "2026-05-21"
