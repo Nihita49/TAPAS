@@ -516,3 +516,86 @@ def test_calibrated_block_survives_series_with_no_observation_today():
     snap = app.compute_snapshot(city, w, rec, dt.datetime(2026, 5, 20, 23, 40))
     c = snap["mortality"]["calibrated"]
     assert c and c["rr"] > 1.0 and c["exposure_day"] == "2026-05-21"
+
+
+# ---------- OpenWeatherMap refresh cadence & call budget ----------
+def _ok_rec(hours_old=0.0):
+    t = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_old)
+    return {"_provenance": "live", "generationtime_utc": t.isoformat(),
+            "hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
+                       "wind_speed_10m": [], "shortwave_radiation": []},
+            "daily": {"temperature_2m_max": []}}
+
+def test_owm_plan_stays_inside_free_tier():
+    p = app.owm_plan()
+    assert p["calls_per_pass"] == sum(len(app.unique_grid(c)) for c in CITY_IDS)
+    assert p["effective_s"] >= p["requested_s"] and p["effective_s"] >= p["floor_s"]
+    # projected monthly usage never exceeds the planned share of the quota
+    assert p["projected_monthly_calls"] <= app.OWM_LIMIT * app.OWM_BUDGET_FRAC * 1.01
+    # a pass must fit the per-minute pacing with slack
+    assert p["pace_interval_s"] >= (p["calls_per_pass"] / app.OWM_PER_MIN) * 60
+
+def test_owm_plan_clamps_an_aggressive_request(monkeypatch):
+    monkeypatch.setattr(app, "REFRESH_S", 30)          # ask for every 30 s
+    app._PLAN_CACHE.clear()
+    p = app.owm_plan()
+    assert p["clamped"] and p["effective_s"] == p["floor_s"] > 30
+    app._PLAN_CACHE.clear()
+
+def test_budget_endpoint_shape():
+    j = client.get("/api/weather/budget").json()
+    assert j["limits"]["monthly"] == app.OWM_LIMIT
+    assert j["grid_calls_per_pass"] == sum(j["grid_calls_by_city"].values())
+    assert 0 < j["projected"]["pct_of_quota"] <= 100 * app.OWM_BUDGET_FRAC * 1.01
+    assert "effective_human" in j["refresh"]
+
+def test_refresh_reuses_last_good_record_on_failure(monkeypatch):
+    live = app.Live()
+    calls = {"n": 0}
+    def fake_paced(locs, **kw):
+        calls["n"] += 1
+        if calls["n"] <= len(CITY_IDS):                 # first pass: everything succeeds
+            return {k: ("ok", _ok_rec()) for k in locs}
+        return {k: ("err", "boom") for k in locs}       # second pass: everything fails
+    monkeypatch.setattr(app, "fetch_many_paced", fake_paced)
+    monkeypatch.setattr(app, "fetch_many", lambda locs, **kw: {k: ("err", "boom") for k in locs})
+    live.refresh(force=True)
+    assert all(live.prov(c) == "live" for c in CITY_IDS)
+    live.refresh(force=True)                            # all fetches fail -> keep last good data
+    assert all(live.prov(c) == "live" for c in CITY_IDS)
+    assert all(v > 0 for v in live.stale.values())
+    assert all(r["rec"].get("_stale") for c in CITY_IDS for r in live.records[c].values())
+
+def test_refresh_falls_back_when_stale_record_too_old(monkeypatch):
+    live = app.Live()
+    monkeypatch.setattr(app, "fetch_many_paced", lambda locs, **kw: {k: ("ok", _ok_rec(hours_old=7)) for k in locs})
+    live.refresh(force=True)
+    monkeypatch.setattr(app, "fetch_many_paced", lambda locs, **kw: {k: ("err", "boom") for k in locs})
+    monkeypatch.setattr(app, "fetch_many", lambda locs, **kw: {k: ("err", "boom") for k in locs})
+    live.refresh(force=True)
+    assert all(live.prov(c) == "fallback" for c in CITY_IDS)   # older than STALE_MAX_S -> tagged demo series
+
+def test_refresh_respects_interval_and_hard_stop(monkeypatch):
+    live = app.Live()
+    n = {"n": 0}
+    def fake_paced(locs, **kw):
+        n["n"] += 1
+        return {k: ("ok", _ok_rec()) for k in locs}
+    monkeypatch.setattr(app, "fetch_many_paced", fake_paced)
+    live.refresh(force=True); first = n["n"]
+    live.refresh()                                       # inside the interval -> no calls
+    assert n["n"] == first
+    monkeypatch.setattr(app._owm, "usage", lambda: {"month": "x", "calls": int(app.OWM_LIMIT * 0.96)})
+    live.refresh(force=True)                             # over the hard-stop line -> no calls
+    assert n["n"] == first and live.throttled
+
+def test_owm_calls_are_counted(monkeypatch):
+    import weather
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return {"list": []}
+    monkeypatch.setattr(weather, "API_KEY", "k")
+    monkeypatch.setattr(weather.requests, "get", lambda *a, **k: R())
+    before = weather.usage()["calls"]
+    weather.fetch_ward(19.0, 72.8)
+    assert weather.usage()["calls"] == before + 1
