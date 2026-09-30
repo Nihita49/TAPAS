@@ -100,6 +100,12 @@ Heatwaves are among India's deadliest and fastest-growing climate hazards. Curre
 ### The Heat–Health Stress Index
 
 ```
+HTSI = H × V × E × (1 − AC)
+```
+
+With the default weights (all 1.0) this is the whole index. The general form, with the configurable weights, is:
+
+```
 HTSI = (wH · H) × (wV · V) × (wE · E) × (1 − wAC · AC)
 ```
 
@@ -409,6 +415,7 @@ We designed TAPAS to state what it does *not* know.
 - **Mortality** is anchored to published relative risks (de Bont et al. 2024), not yet fitted to local data. **Hospitalisation** is not yet calibrated. The system supports fitting as soon as observed data is supplied.
 - **Several coefficients are defensible defaults**, not validated values. This is disclosed in the UI and API.
 - **Ward-level differences are modelled**, combining city-level Census 2011 data with ward-level satellite, HL-14 and OSM inputs. City data can calibrate the level of risk but cannot validate ward-to-ward differences.
+- **Seasonal factor.** For mortality and hospitalisation risk, the standing ward terms (exposure, vulnerability uplift, cooling access) are scaled by how close the month's normal maximum temperature is to the city's hottest month (ERA5 2014-2024), with a floor of 0.25. This stops dense, low-cooling wards showing "Moderate" or "High" all year. Heat-wave-level anomalies (or UTCI of about 44 and above) override the season, so unseasonal heat is never damped. HTSI itself is unchanged. The floor and an on/off switch are in `/api/weights` (`season_floor`, `season_enabled`); both are unvalidated defaults.
 - **Missing data is never silently filled.** It shows as "Insufficient data", and any fallback is labelled.
 - **Simulator output** is always labelled and off by default.
 
