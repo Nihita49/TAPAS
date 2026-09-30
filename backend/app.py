@@ -266,10 +266,14 @@ IMD_SHW_DEP=6.4
 FLAGS={"sym_anom":False,          # True => anomaly term may also lower risk (a in [-1,1])
        "imd_abs_gate":True}       # True => a departure only counts as heat when Tmax is also hot in absolute terms
 # IMD heat-wave criteria need BOTH a departure >=4.5C AND an absolute Tmax (plains 40C, coastal 37C).
-# The gate ramps the anomaly driver from 0 at (threshold-5C) to full at the threshold, so a mild
-# 33C day that is +4.6C over a cool-month normal is not scored as a heat wave. UNVALIDATED ramp width.
+# The gate scales a positive departure by g: IMD_GATE_FLOOR at (threshold-5C) and below, rising
+# linearly to 1 at the threshold. A mild 33C day that is +4.6C over a cool-month normal is therefore
+# damped, not scored as a heat wave. The floor is deliberately NOT zero: a hard zero made H, and so HTSI,
+# exactly 0 for every ward on any day with UTCI <= 36, which erased all ward-to-ward ranking.
+# UNVALIDATED ramp width and floor.
 IMD_ABS_TMAX={"plains":40.0,"coastal":37.0}
 IMD_GATE_RAMP=5.0
+IMD_GATE_FLOOR=0.25
 COASTAL_CITIES={"Mumbai","Chennai"}
 # Seasonal factor (mortality/hospitalisation logistics only; HTSI is untouched).
 # The static ward terms (E exposure, V vulnerability uplift, AC cooling access) are
@@ -581,7 +585,7 @@ def _a_of(dep, tmax=None, city=None):
     if dep is None: return 0.0
     if dep>0 and tmax is not None and city is not None and FLAGS.get("imd_abs_gate"):
         thr=IMD_ABS_TMAX["coastal" if city in COASTAL_CITIES else "plains"]
-        dep=dep*clamp((tmax-(thr-IMD_GATE_RAMP))/IMD_GATE_RAMP)
+        dep=dep*(IMD_GATE_FLOOR+(1.0-IMD_GATE_FLOOR)*clamp((tmax-(thr-IMD_GATE_RAMP))/IMD_GATE_RAMP))
     if dep<=0:
         return clamp(dep/IMD_SHW_DEP,-1,0) if FLAGS.get("sym_anom") else 0.0
     if dep<=IMD_HW_DEP: return 0.5*dep/IMD_HW_DEP
