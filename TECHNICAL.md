@@ -1,703 +1,338 @@
-"""TAPAS Heat EWS automated tests.
-Run:  cd backend && TAPAS_NOSCHED=1 python3 -m pytest ../tests -q
-Offline-safe: no weather network needed; scheduler disabled."""
-import os, sys, datetime as dt
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
-os.environ.setdefault("TAPAS_NOSCHED", "1")
-os.environ.pop("TWILIO_ACCOUNT_SID", None); os.environ.pop("TWILIO_AUTH_TOKEN", None)
-os.environ.pop("TWILIO_FROM", None); os.environ.pop("TWILIO_TO", None)
-
-import pytest
-from fastapi.testclient import TestClient
-import app, datastore
-from app import (STORE, CITY_IDS, vulnerability, ac_for_ward, env_terms,
-                 city_sat_medians, clamp)
-from measures_i18n import personal_multilang, STATE_LANG
-
-client = TestClient(app.app)
-
-def wards_with_sat(city):
-    return [w for w in STORE.cities[city]["wards"] if w.get("sat") and w["sat"].get("built_frac") is not None]
-
-# ---------- API surface ----------
-def test_landing_200():
-    r = client.get("/")
-    assert r.status_code == 200 and "TAPAS" in r.text
-
-def test_twilio_status_honest_when_unconfigured():
-    r = client.get("/api/twilio/status")
-    assert r.status_code == 200
-    j = r.json()
-    assert j["configured"] is False
-    assert set(j["vars"]) == {"TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM", "TWILIO_TO"}
-
-def test_test_send_honest_simulated_without_creds():
-    r = client.post("/api/alerts/test")
-    assert r.status_code == 200
-    j = r.json()
-    assert j["sent"] is False and j["channel_result"].startswith("SIMULATED")
-
-def test_trend_endpoint_labelled():
-    r = client.get("/api/trend?days=30")
-    assert r.status_code == 200
-    j = r.json()
-    assert j["points"] >= 20
-    assert any(p["src"] == "archive-backfill" for p in j["series"])
-    assert "UNVALIDATED" in j["disclosure"]
-
-def test_outbox_records_test_send():
-    client.post("/api/alerts/test")
-    r = client.get("/api/outbox")
-    assert r.status_code == 200
-    assert any(e["type"] == "test" for e in r.json())
-
-# ---------- model factors ----------
-def test_ac_is_per_ward_not_static():
-    for city in CITY_IDS:
-        ws = wards_with_sat(city)
-        acs = set()
-        base = STORE.cities[city]["config"]["ac_ref"]["value"]
-        for w in ws:
-            env = env_terms(w["sat"], city)
-            a, info = ac_for_ward(city, env, w["sat"])
-            acs.add(round(a, 4))
-            assert "elec_pct" in info and "health_per_km2" in info  # composite inputs present
-        if city != "Mumbai":  # Mumbai wards share city-level HL-14 fallback -> still varies via satellite
-            assert len(acs) > 1, f"{city} AC collapsed to one value"
-        assert all(0.05 <= a <= 0.9 for a in acs)
-        assert len(acs) >= 1 and base is not None
-
-def test_v_has_seven_indicator_slots_and_honest_pending():
-    for city in CITY_IDS:
-        v = vulnerability(city)
-        have = set(v["parts"])
-        assert {"children", "literacy", "disability", "density", "kutcha"} <= have, (city, have)
-        # elderly 60+ now present for all four cities; Hyderabad's comes from the
-        # fully-urban district row of C-14 AP (2011 jurisdiction) - no city row was ever published
-        assert "elderly" in have, (city, have)
-        if city == "Hyderabad":
-            assert "slum share" in v["pending"]   # still genuinely unpublished
-        assert "UNVALIDATED" in v["disclosure"]
-
-def test_v_kutcha_varies_per_ward_where_hl14_matched():
-    city = "Chennai"
-    ws = [w for w in wards_with_sat(city) if w["sat"].get("kutcha_pct") is not None]
-    vals = {vulnerability(city, w)["v"] for w in ws[:80]}
-    assert len(vals) > 1, "per-ward kutcha produced no V variation"
-
-def test_modis_present_for_three_plus_cities():
-    n = 0
-    for city in CITY_IDS:
-        m = STORE.cities[city].get("modis")
-        if m and m.get("lst") and len(m["lst"].get("wards", {})) > 0:
-            n += 1
-    assert n >= 3
-
-def test_hl14_and_health_merged():
-    w = next(w for w in wards_with_sat("Chennai") if str(w["id"]) == "58")
-    assert w["sat"].get("elec_pct") is not None
-    assert w["sat"].get("kutcha_pct") is not None
-    assert w["sat"].get("health_per_km2") is not None
-
-# ---------- alerts ----------
-def test_digest_cross_suppression():
-    s = app.Sched.__new__(app.Sched)
-    now = dt.datetime(2026, 9, 10, 12, 0, 0)
-    s.last_event = {"Chennai/58": {"band": "High", "ts": now - dt.timedelta(hours=2)},
-                    "Hyderabad/19": {"band": "High", "ts": now - dt.timedelta(hours=20)}}
-    act = [{"ward": {"city": "Chennai", "id": "58", "label": "Ward 58"}, "current": {"band": "High", "htsi": 0.15}},
-           {"ward": {"city": "Hyderabad", "id": "19", "label": "Ward 19"}, "current": {"band": "Severe", "htsi": 0.2}}]
-    kept, sup = s.digest_candidates(act, now)
-    assert sup == 1 and len(kept) == 1 and kept[0]["ward"]["city"] == "Hyderabad"
-    msg = app.build_digest_message(kept, sup)
-    assert "omitted" in msg and "Ward 58" not in msg
-
-def test_personal_multilang_aligned():
-    for city in CITY_IDS:
-        for band in ("Moderate", "High", "Severe"):
-            m = personal_multilang(band, city)
-            assert m["state_lang"] == STATE_LANG[city]
-            assert len(m["hi"]) == len(m["en"]) and len(m["state"]) == len(m["en"])
-            assert all(x.strip() for x in m["hi"]) and all(x.strip() for x in m["state"])
-
-def test_lcz_real_wudapt_layer():
-    """Real WUDAPT/Demuzere LCZ classes populated per ward (Zenodo 6364594 COG)."""
-    for city in ["Mumbai","Ahmedabad","Chennai","Hyderabad"]:
-        r = client.get(f"/api/city/{city}/wards")
-        assert r.status_code == 200
-        feats = r.json()["features"]
-        sats=[(f["properties"].get("sat") or {}) for f in feats]
-        with_lcz=[s for s in sats if s.get("lcz")]
-        assert len(with_lcz)==len(sats), f"{city}: LCZ missing for some wards"
-        assert all(1<=s["lcz"]<=17 for s in with_lcz), f"{city}: LCZ class out of WUDAPT range"
-        assert all(s.get("lcz_name") for s in with_lcz)
-        # classes must vary across wards (not a constant)
-        assert len({s["lcz"] for s in with_lcz})>1, f"{city}: LCZ constant"
-
-def test_lcz_flows_into_exposure_and_panel():
-    """LCZ built-share modulates E and reaches the ward profile panel."""
-    hit=0
-    for city in ["Mumbai","Ahmedabad","Chennai","Hyderabad"]:
-        for w in STORE.cities[city]["wards"]:
-            sat=w.get("sat") or {}
-            if sat.get("lcz") is None: continue
-            e=env_terms(sat, city)
-            assert e.get("lcz")==sat["lcz"] and e.get("lcz_name")
-            assert 0<=e["E"]<=1
-            hit+=1
-    assert hit>400, f"expected LCZ on every ward, got {hit}"
-    # the merged sat record itself carries the LCZ fields the panel renders
-    wa=[w for w in STORE.cities["Mumbai"]["wards"] if str(w["id"])=="A"][0]
-    assert wa["sat"].get("lcz") and wa["sat"].get("lcz_name")
-    assert wa["sat"].get("lcz_built_share") is not None
-    r=client.get("/api/city/Mumbai/wards")
-    satA=[f["properties"]["sat"] for f in r.json()["features"] if f["properties"]["id"]=="A"][0]
-    assert satA.get("lcz")==wa["sat"]["lcz"]
-
-def test_sms_trilingual_and_emergency_block():
-    """SMS = English + Hindi + state language; High/Severe add trilingual
-    heat-stroke emergency block with national numbers 112/108."""
-    from measures_i18n import emergency_multilang, STATE_LANG
-    for city in ["Mumbai","Ahmedabad","Chennai","Hyderabad"]:
-        m=emergency_multilang(city)
-        assert m["numbers"]==["112","108"]
-        for k in ("en","hi","state"):
-            assert m[k]["signs"] and m[k]["call"]
-        assert m["state_lang"]==STATE_LANG[city]
-    body,_,emg=app.build_sms("[TAPAS ALERT] x","High","Hyderabad")
-    for tag in ("-- Personal guidance --","EN:","HI:","Telugu:","-- EMERGENCY (heatstroke) --","112","108"):
-        assert tag in body
-    assert emg and emg["numbers"]==["112","108"]
-    assert len(body)<=1500                      # Twilio single-segment-ish cap used by _twilio_send
-    body_low,_,emg_low=app.build_sms("[TAPAS ALERT] x","Moderate","Mumbai")
-    assert "Marathi:" in body_low and emg_low is None and "EMERGENCY" not in body_low
-
-def test_ward_panel_emergency_matches_band():
-    seen=0
-    for city,wid in [("Mumbai","A"),("Hyderabad","1")]:
-        r=client.get(f"/api/city/{city}/ward/{wid}")
-        s=r.json().get("snapshot")
-        if not s: continue                      # offline test client: no live weather
-        meas=s["measures"]; seen+=1
-        if meas["level"] in ("High","Severe"):
-            assert meas["emergency"] and meas["emergency"]["numbers"]==["112","108"]
-        else:
-            assert meas["emergency"] is None
-    if seen==0:
-        # offline: verify the wiring directly through the snapshot builder's rule
-        from measures_i18n import emergency_multilang
-        assert emergency_multilang("Hyderabad")["numbers"]==["112","108"]
-
-def test_configurable_risk_surface_and_reset():
-    """POST /api/weights tunes logistic coefficients, band cut-points, sym_anom;
-    invalid band ordering rejected; reset restores documented defaults."""
-    j=client.post("/api/weights", json={"mort_anom":6.0}).json()
-    assert j["risk_coef"]["mort"]["anom"]==6.0
-    j=client.post("/api/weights", json={"band1":0.05,"band2":0.20,"band3":0.30}).json()
-    assert j["band_t"][:3]==[0.05,0.20,0.30]
-    j=client.post("/api/weights", json={"band1":0.30,"band2":0.10,"band3":0.20}).json()
-    assert j["band_t"][:3]==[0.05,0.20,0.30]        # unordered cut-points rejected
-    j=client.post("/api/weights", json={"sym_anom":True}).json()
-    assert j["flags"]["sym_anom"] is True
-    assert app._a_of(-3.0)==-1.0                    # cool days now lower the driver
-    j=client.post("/api/weights", json={"mort_AC":2.5,"hosp_AC":0.7}).json()
-    assert j["risk_coef"]["mort"]["AC"]==2.5 and j["risk_coef"]["hosp"]["AC"]==0.7
-    j=client.post("/api/weights", json={"reset":True}).json()
-    assert j["risk_coef"]["mort"]["anom"]==3.0 and j["risk_coef"]["hosp"]["V"]==3.2
-    assert j["risk_coef"]["mort"]["AC"]==1.8 and j["risk_coef"]["hosp"]["AC"]==1.4   # k_m / k_h defaults
-    assert j["band_t"]==j["band_t_defaults"] and j["flags"]["sym_anom"] is False
-    assert app._a_of(-3.0)==0.0
-
-def test_snapshot_exposes_logistic_terms():
-    r=client.get("/api/city/Mumbai/ward/A")
-    s=r.json().get("snapshot")
-    if not s: return                                # offline test client
-    rt=s["factors"]["risk_terms"]
-    assert set(rt["mort"])=={"intercept","anom","surge","H","E","V","AC"}
-    assert rt["mort"]["AC"]<0 and rt["hosp"]["AC"]<0          # higher AC lowers risk
-    assert abs(sum(rt["mort"].values())-rt["z_mort"])<0.011
-    assert abs(sum(rt["hosp"].values())-rt["z_hosp"])<0.011
-
-def test_export_csv_audit_rows(monkeypatch):
-    import csv as _csv, io as _io
-    r=client.get("/api/city/Mumbai/export.csv")
-    assert r.status_code==200 and r.headers["content-type"].startswith("text/csv")
-    lines=r.text.splitlines()
-    assert lines[0].startswith("# TAPAS ward export") and "UNVALIDATED" in lines[1]
-    rows=list(_csv.DictReader(_io.StringIO("\n".join(lines[2:]))))
-    assert len(rows)==len(STORE.cities["Mumbai"]["wards"])
-    # deterministic flattening check: inject a snapshot, re-read the CSV
-    fake={"available":True,
-      "current":{"htsi":0.12,"band":"Moderate","utci":30.0,"tair":31.0},
-      "mortality":{"band":"Moderate","probability":0.11},
-      "hospitalisation":{"band":"Moderate","probability":0.14},
-      "factors":{"H":0.5,"V":1.2,"E":0.7,"AC":0.4,
-        "risk_terms":{"mort":{"intercept":-4.3,"anom":0.9,"surge":0.2,"H":0.6,"E":0.8,"V":0.6,"AC":-0.72},
-                      "hosp":{"intercept":-4.0,"anom":1.0,"surge":0.2,"H":0.48,"E":0.7,"V":0.5,"AC":-0.56},
-                      "z_mort":-1.92,"z_hosp":-1.68}}}
-    monkeypatch.setattr(app,"compute_snapshot",lambda *a,**k:fake)
-    monkeypatch.setattr(app.LIVE,"ward",lambda city,w:{"_prov":"test"})   # rec truthy offline
-    r2=client.get("/api/city/Mumbai/export.csv")
-    rows2=list(_csv.DictReader(_io.StringIO("\n".join(r2.text.splitlines()[2:]))))
-    assert rows2 and all(x["available"]=="1" for x in rows2)
-    x=rows2[0]
-    assert x["htsi_band"]=="Moderate" and x["mort_band"]=="Moderate" and x["hosp_band"]=="Moderate"
-    assert float(x["z_mort"])==-1.92 and float(x["z_hosp"])==-1.68
-    assert float(x["mort_H"])==0.6 and float(x["hosp_H"])==0.48
-    assert float(x["mort_E"])==0.8 and float(x["hosp_V"])==0.5
-    assert float(x["mort_AC"])==-0.72 and float(x["hosp_AC"])==-0.56
-    assert float(x["H"])==0.5 and float(x["AC"])==0.4
-
-def test_slashed_ward_ids_route():
-    # Mumbai ward ids like "F/N" contain a slash; both ward routes must resolve them.
-    r=client.get("/api/city/Mumbai/ward/F/N")
-    assert r.status_code==200 and r.json()["ward"]["id"]=="F/N"
-    r2=client.get("/api/city/Mumbai/ward/F/N/projection")
-    assert r2.status_code==200
-
-def test_apply_measures_clamps_and_waterfall():
-    a,s,E,Vv,AC=0.5,0.10,0.8,1.20,0.88
-    a2,s2,H2,E2,V2,AC2,steps=app.apply_measures(a,s,0.5,E,Vv,AC,
-        ["welfare_checks","cooling_centres","outdoor_work_reschedule","water_audits","grid_energy_notice"])
-    assert AC2==0.90                          # 0.88+0.10(+0.03+0.05) clamped at 0.90
-    assert s2==0.0                            # 0.10-0.15 floored at 0
-    assert V2==1.0+0.85*(1.20-1.0)            # vt *= 0.85
-    assert [st["measure"] for st in steps]==list(app.MEASURE_EFFECTS)   # canonical order
-    seq=[st["mort_after"] for st in steps]
-    assert all(x<=y+1e-9 for y,x in zip(seq,seq[1:]))   # never increases risk
-    assert all(st["mort_delta"]<=0 and st["hosp_delta"]<=0 for st in steps)
-    assert steps[0]["rationale"]
-
-def test_apply_measures_ignores_unknown():
-    a,s,E,Vv,AC=0.5,0.2,0.8,1.2,0.4
-    _,_,_,_,_,_,steps=app.apply_measures(a,s,0.5,E,Vv,AC,["bogus_measure"])
-    assert steps==[]
-
-def test_scenario_endpoint_and_tunable_measure_effects(monkeypatch):
-    monkeypatch.setattr(app.LIVE,"ward",lambda city,w:{"_prov":"test"})
-    monkeypatch.setattr(app,"severity",lambda city,rec,series,now:{"anom":1.5,"utci":39.0,"hsev":0.5,"tair":39.0,"daymax":40.0,"base":37.0})
-    r=client.get("/api/scenario/preventive?city=Mumbai&ward_id=A&measures=cooling_centres,outdoor_work_reschedule")
-    assert r.status_code==200
-    j=r.json()
-    assert j["available"] is True
-    assert j["disclosure"]==app.SCENARIO_DISCLOSURE
-    assert "unvalidated" in j["disclosure"] and "Section 6" in j["disclosure"]
-    assert [w_["measure"] for w_ in j["waterfall"]]==["cooling_centres","outdoor_work_reschedule"]
-    assert j["adjusted"]["mortality"]<=j["baseline"]["mortality"]
-    assert j["baseline"]["mort_band"] and j["adjusted"]["mort_band"]
-    # POST variant
-    r2=client.post("/api/scenario/preventive", json={"city":"Mumbai","ward_id":"A","measures":["welfare_checks"]})
-    assert r2.status_code==200 and r2.json()["waterfall"][0]["term"]=="vt"
-    # runtime-tunable effect sizes via /api/weights, with plausibility guard + reset
-    j2=client.post("/api/weights", json={"measure_effects":{"cooling_centres":0.2}}).json()
-    assert j2["measure_effects"]["cooling_centres"]["value"]==0.2
-    r3=client.get("/api/scenario/preventive?city=Mumbai&ward_id=A&measures=cooling_centres").json()
-    assert r3["waterfall"][0]["value"]==0.2
-    j4=client.post("/api/weights", json={"measure_effects":{"cooling_centres":5.0}}).json()
-    assert j4["measure_effects"]["cooling_centres"]["value"]==0.5
-    j5=client.post("/api/weights", json={"reset":True}).json()
-    assert j5["measure_effects"]["cooling_centres"]["value"]==0.10
-
-def test_weights_move_logistics_and_risk_bands_exposed(monkeypatch):
-    monkeypatch.setattr(app.LIVE,"ward",lambda city,w:{"_prov":"test"})
-    monkeypatch.setattr(app,"severity",lambda city,rec,series,now:{"anom":1.5,"utci":39.0,"hsev":0.5,"tair":39.0,"daymax":40.0,"base":37.0})
-    def prob():
-        s=client.get("/api/city/Mumbai/ward/A").json()["snapshot"]
-        return s["mortality"]["probability"], s["hospitalisation"]["probability"]
-    w=client.get("/api/weights").json()
-    assert "risk_band_t" in w and "risk_band_t_defaults" in w
-    m0,h0=prob()
-    j=client.post("/api/weights", json={"E":1.8}).json()
-    assert j["weights"]["E"]==1.8
-    m1,h1=prob()
-    assert (m1,h1)!=(m0,h0)                       # WEIGHTS["E"] now moves the logistics
-    j=client.post("/api/weights", json={"E":1.0,"H":2.0}).json()
-    m2,h2=prob()
-    assert (m2,h2)!=(m1,h1)                       # WEIGHTS["H"] now moves the logistics
-    j=client.post("/api/weights", json={"rband1":0.05,"rband2":0.15,"rband3":0.30}).json()
-    assert j["risk_band_t"]==[0.05,0.15,0.30]
-    j=client.post("/api/weights", json={"rband1":0.30,"rband2":0.10,"rband3":0.20}).json()
-    assert j["risk_band_t"]==[0.05,0.15,0.30]     # unordered rejected
-    j=client.post("/api/weights", json={"reset":True}).json()
-    assert j["risk_band_t"]==j["risk_band_t_defaults"] and j["weights"]["H"]==1.0
-    assert "independently calibrated" in j["note"]
-
-
-# ---------- calibration layer (historical health data) ----------
-import numpy as np, json as _json
-import calibration as cal
-
-
-def _synth(n=1100, beta_a=0.6, beta_s=0.0, seed=7, base=100.0, adm_gamma=0.0):
-    rng = np.random.default_rng(seed)
-    d0 = dt.date(2019, 1, 1)
-    dates = [(d0 + dt.timedelta(days=i)).isoformat() for i in range(n)]
-    doy = np.array([(d0 + dt.timedelta(days=i)).timetuple().tm_yday for i in range(n)], float)
-    # hot season Apr-Jun produces a > 0 on about a fifth of days
-    a = np.clip(rng.normal(0, 0.25, n) + 0.5 * np.exp(-((doy - 135) / 25.0) ** 2), 0, 1)
-    s = np.clip(a * 0.6 + rng.normal(0, 0.05, n), 0, 1)
-    mu = base * np.exp(beta_a * a + beta_s * s + 0.1 * np.sin(2 * np.pi * doy / 365.25))
-    return dates, a, s, mu, rng
-
-
-def test_poisson_fit_recovers_heat_slope():
-    dates, a, s, mu, rng = _synth(beta_a=0.6)
-    y = rng.poisson(mu)
-    blk = cal.fit_outcome(dates, y, a, s)
-    assert blk["basis"] == "fitted"
-    assert abs(blk["beta_a"] - 0.6) < 3 * blk["se_a"] + 0.05
-    assert 0.9 * 100 < blk["baseline_per_day"] < 1.15 * 100
-
-
-def test_fit_rejected_when_no_heat_signal():
-    dates, a, s, mu, rng = _synth(beta_a=0.0)
-    y = rng.poisson(mu)
-    blk = cal.fit_outcome(dates, y, a, s)
-    assert "rejected" in blk and "basis" not in blk
-
-
-def test_fit_rejected_on_too_little_data():
-    dates, a, s, mu, rng = _synth(n=200)
-    blk = cal.fit_outcome(dates, rng.poisson(mu), a, s)
-    assert "rejected" in blk and "rows" in blk["rejected"]
-
-
-def test_admissions_gamma_only_kept_when_informative():
-    dates, a, s, mu, rng = _synth(beta_a=0.5)
-    z = rng.normal(0, 0.4, len(dates))                     # extra latent driver visible in admissions
-    y = rng.poisson(mu * np.exp(0.5 * z))
-    adm = np.expm1(np.log1p(60) + z)                       # lagged admissions carry that driver
-    blk = cal.fit_outcome(dates, y, a, s, adm_lag=adm)
-    assert blk["basis"] == "fitted" and blk.get("gamma_adm", 0) > 0.2
-    assert "adm_log_mean" in blk
-    # unrelated admissions must not be adopted
-    blk2 = cal.fit_outcome(dates, rng.poisson(mu), a, s, adm_lag=rng.uniform(20, 80, len(dates)))
-    assert "gamma_adm" not in blk2
-
-
-def test_anchor_block_math_and_guards():
-    an = {"id": "x", "rr": 1.5, "exposure": {"type": "imd_heat_wave", "a_ref": 0.5}, "source": "s"}
-    b = cal.anchor_block(an, "Ahmedabad", app._mean_tmax, app._a_of)
-    assert abs(b["beta_a"] - np.log(1.5) / 0.5) < 1e-3 and b["basis"] == "published-anchor"
-    # a_ref derived from a stated Tmax and the city's own ERA5 May normal
-    an2 = {"id": "y", "rr": 1.76, "exposure": {"type": "tmax_month", "tmax_c": 46.8, "month": 5}}
-    b2 = cal.anchor_block(an2, "Ahmedabad", app._mean_tmax, app._a_of)
-    assert 0.8 < b2["a_ref"] < 0.9
-    # an exposure at/below normal cannot define a slope
-    an3 = {"id": "z", "rr": 1.16, "exposure": {"type": "tmax_month", "tmax_c": 30.0, "month": 5}}
-    assert cal.anchor_block(an3, "Ahmedabad", app._mean_tmax, app._a_of) is None
-
-
-def test_shipped_calibration_is_honest_about_uncalibrated_outputs():
-    d = _json.load(open(cal.CAL_FILE))
-    for c in ("Ahmedabad", "Mumbai", "Chennai", "Hyderabad"):
-        assert d["cities"][c]["mort"]["basis"] == "published-anchor"
-    # same study and definition everywhere; Mumbai's published effect is much weaker than Ahmedabad's
-    assert d["cities"]["Mumbai"]["mort"]["beta_a"] < d["cities"]["Ahmedabad"]["mort"]["beta_a"] / 3
-    assert d["cities"]["Ahmedabad"]["mort"]["anchor_id"].startswith("debont2024-97p-2d")
-    for c in d["cities"].values():
-        assert "hosp" not in c and c["hosp_note"]          # no admissions data => no calibrated hosp
-
-
-def test_calibrated_rr_monotone_capped_and_ward_scaled(monkeypatch):
-    monkeypatch.setattr(cal, "_CAL", {"cities": {"X": {"mort": {"basis": "fitted", "beta_a": 0.7, "beta_s": 0.0}}}})
-    lo = cal.calibrated_rr("X", "mort", 0.2, 0.0)["rr"]
-    hi = cal.calibrated_rr("X", "mort", 0.9, 0.0)["rr"]
-    assert 1.0 < lo < hi
-    assert cal.calibrated_rr("X", "mort", 0.9, 0.0, ward_mult=2.0)["rr"] > hi
-    assert cal.calibrated_rr("X", "mort", 0.9, 0.0, ward_mult=0.5)["rr"] < hi
-    monkeypatch.setitem(cal._CAL["cities"]["X"]["mort"], "beta_a", 9.0)
-    assert cal.calibrated_rr("X", "mort", 1.0, 0.0, ward_mult=2.0)["rr"] <= cal.RR_CAP
-    assert cal.calibrated_rr("X", "hosp", 0.9, 0.0) is None    # uncalibrated outcome stays None
-    assert cal.calibrated_rr("Nowhere", "mort", 0.9, 0.0) is None
-
-
-def test_admissions_nowcast_only_when_fresh(monkeypatch):
-    blk = {"basis": "fitted", "beta_a": 0.5, "gamma_adm": 0.3, "adm_log_mean": 4.0}
-    monkeypatch.setattr(cal, "_CAL", {"cities": {"X": {"mort": blk}}})
-    now = dt.datetime(2026, 6, 10, 12)
-    obs = {"X": {"2026-06-09": {"deaths": None, "admissions": 200.0}}}
-    z, d = cal.latest_admissions_z("X", now, obs)
-    assert d == "2026-06-09" and z > 1.0
-    obs_old = {"X": {"2026-05-01": {"deaths": None, "admissions": 200.0}}}
-    assert cal.latest_admissions_z("X", now, obs_old) == (None, None)
-
-
-def test_ward_multiplier_bounded_and_median_is_one():
-    city = "Ahmedabad"
-    ws = wards_with_sat(city)[:40]
-    ms = [app.ward_multiplier(city, w) for w in ws]
-    assert all(0.5 <= m <= 2.0 for m in ms)
-    assert min(ms) < max(ms)
-
-
-def test_snapshot_carries_calibrated_block_with_basis():
-    city = "Ahmedabad"; w = wards_with_sat(city)[0]
-    now = dt.datetime(2026, 5, 20, 14)
-    rec = {"hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
-                      "wind_speed_10m": [], "shortwave_radiation": []}}
-    for h in range(72):
-        t = dt.datetime(2026, 5, 19, 0) + dt.timedelta(hours=h)
-        rec["hourly"]["time"].append(t.strftime("%Y-%m-%dT%H:%M"))
-        rec["hourly"]["temperature_2m"].append(33 + 12 * max(0, np.sin(np.pi * (t.hour - 6) / 14)) if 6 <= t.hour <= 20 else 33)
-        rec["hourly"]["relative_humidity_2m"].append(30); rec["hourly"]["wind_speed_10m"].append(3)
-        rec["hourly"]["shortwave_radiation"].append(600 if 8 <= t.hour <= 17 else 0)
-    snap = app.compute_snapshot(city, w, rec, now)
-    assert snap["available"]
-    m = snap["mortality"]; c = m["calibrated"]
-    assert c and c["basis"] == "published-anchor" and c["rr"] > 1.0 and c["label"]
-    assert snap["hospitalisation"]["calibrated"] is None           # no admissions data yet
-    assert "probability" in m and "band" in m                        # original output untouched
-    assert all("mortality_rr" in f for f in snap["forecast"])
-
-
-def test_uncalibrated_outcome_has_no_calibrated_block():
-    city = "Mumbai"; w = wards_with_sat(city)[0]
-    rec = app.synth_weather(19.0, 72.8) if hasattr(app, "synth_weather") else None
-    snap = app.compute_snapshot(city, w, rec, dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
-    assert snap["available"]
-    assert snap["mortality"]["calibrated"] is not None and snap["mortality"]["calibrated"]["basis"] == "published-anchor"
-    assert snap["hospitalisation"]["calibrated"] is None          # no admissions data or anchor yet
-
-
-def test_calibration_endpoints():
-    j = client.get("/api/calibration").json()
-    assert j["cities"]["Ahmedabad"]["mort"]["basis"] == "published-anchor"
-    assert j["cities"]["Mumbai"]["mort"]["basis"] == "published-anchor"
-    assert j["cities"]["Mumbai"]["hosp"]["basis"] == "default" and j["cities"]["Mumbai"]["hosp"]["note"]
-    assert client.post("/api/calibration/reload").status_code == 200
-
-
-def test_build_fits_observed_data_end_to_end(monkeypatch, tmp_path):
-    """calibrate_risk.build(): synthetic 'observed' deaths + a fake archive fetch
-    must give a fitted block that replaces the anchor for that city."""
-    import calibrate_risk as cr
-    city = "Ahmedabad"
-    dates, a_true, s_true, mu, rng = _synth(n=1100, beta_a=0.6)
-    d0 = dt.date.fromisoformat(dates[0])
-    # fake archive whose daily-max maps (via the model's own _a_of) to a_true
-    def fake_fetch(lat, lon, start, end):
-        H = {"time": [], "temperature_2m": [], "relative_humidity_2m": [], "wind_speed_10m": [], "shortwave_radiation": []}
-        d = start
-        while d <= end:
-            a = a_true[(d - d0).days]
-            norm = app._mean_tmax(city, d.month)
-            # invert _a_of on its linear pieces
-            dep = 0.0 if a <= 0 else (a / 0.5 * app.IMD_HW_DEP if a <= 0.5 else
-                                      app.IMD_HW_DEP + (a - 0.5) / 0.5 * (app.IMD_SHW_DEP - app.IMD_HW_DEP))
-            for h in range(24):
-                H["time"].append("%sT%02d:00" % (d.isoformat(), h))
-                H["temperature_2m"].append(norm + dep - (0 if h == 14 else 3))
-                H["relative_humidity_2m"].append(40); H["wind_speed_10m"].append(3)
-                H["shortwave_radiation"].append(500)
-            d += dt.timedelta(days=1)
-        return {"hourly": H}
-    rows = {dates[i]: {"deaths": float(rng.poisson(mu[i])), "admissions": None} for i in range(len(dates))}
-    res = cr.build(fetch=fake_fetch, observed={city: rows})
-    blk = res["cities"][city]["mort"]
-    assert blk["basis"] == "fitted" and blk["beta_a"] > 0.3
-    assert blk["diagnostics"]["pearson_r_obs_vs_pred"] > 0.3
-    assert res["cities"]["Chennai"]["mort"]["basis"] == "published-anchor"   # untouched
-
-
-def test_calibrated_block_survives_series_with_no_observation_today():
-    """Live OpenWeather data is 3-hourly and starts at the next slot, so late in
-    the UTC day nothing is dated 'today'. The calibrated block must still appear,
-    using the nearest upcoming day, and say which day it used."""
-    city = "Ahmedabad"; w = wards_with_sat(city)[0]
-    rec = {"hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
-                      "wind_speed_10m": [], "shortwave_radiation": []}}
-    for h in range(0, 120, 3):
-        t = dt.datetime(2026, 5, 21, 0, 0) + dt.timedelta(hours=h)
-        rec["hourly"]["time"].append(t.strftime("%Y-%m-%dT%H:%M"))
-        rec["hourly"]["temperature_2m"].append(44 if 6 <= t.hour <= 15 else 34)
-        rec["hourly"]["relative_humidity_2m"].append(30); rec["hourly"]["wind_speed_10m"].append(10)
-        rec["hourly"]["shortwave_radiation"].append(500)
-    snap = app.compute_snapshot(city, w, rec, dt.datetime(2026, 5, 20, 23, 40))
-    c = snap["mortality"]["calibrated"]
-    assert c and c["rr"] > 1.0 and c["exposure_day"] == "2026-05-21"
-
-
-# ---------- OpenWeatherMap refresh cadence & call budget ----------
-def _ok_rec(hours_old=0.0):
-    t = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_old)
-    return {"_provenance": "live", "generationtime_utc": t.isoformat(),
-            "hourly": {"time": [], "temperature_2m": [], "relative_humidity_2m": [],
-                       "wind_speed_10m": [], "shortwave_radiation": []},
-            "daily": {"temperature_2m_max": []}}
-
-def test_owm_plan_stays_inside_free_tier():
-    p = app.owm_plan()
-    assert p["calls_per_pass"] == sum(len(app.unique_grid(c)) for c in CITY_IDS)
-    assert p["effective_s"] >= p["requested_s"] and p["effective_s"] >= p["floor_s"]
-    # projected monthly usage never exceeds the planned share of the quota
-    assert p["projected_monthly_calls"] <= app.OWM_LIMIT * app.OWM_BUDGET_FRAC * 1.01
-    # a pass must fit the per-minute pacing with slack
-    assert p["pace_interval_s"] >= (p["calls_per_pass"] / app.OWM_PER_MIN) * 60
-
-def test_owm_plan_clamps_an_aggressive_request(monkeypatch):
-    monkeypatch.setattr(app, "REFRESH_S", 30)          # ask for every 30 s
-    app._PLAN_CACHE.clear()
-    p = app.owm_plan()
-    assert p["clamped"] and p["effective_s"] == p["floor_s"] > 30
-    app._PLAN_CACHE.clear()
-
-def test_budget_endpoint_shape():
-    j = client.get("/api/weather/budget").json()
-    assert j["limits"]["monthly"] == app.OWM_LIMIT
-    assert j["grid_calls_per_pass"] == sum(j["grid_calls_by_city"].values())
-    assert 0 < j["projected"]["pct_of_quota"] <= 100 * app.OWM_BUDGET_FRAC * 1.01
-    assert "effective_human" in j["refresh"]
-
-def test_refresh_reuses_last_good_record_on_failure(monkeypatch):
-    live = app.Live()
-    calls = {"n": 0}
-    def fake_paced(locs, **kw):
-        calls["n"] += 1
-        if calls["n"] <= len(CITY_IDS):                 # first pass: everything succeeds
-            return {k: ("ok", _ok_rec()) for k in locs}
-        return {k: ("err", "boom") for k in locs}       # second pass: everything fails
-    monkeypatch.setattr(app, "fetch_many_paced", fake_paced)
-    monkeypatch.setattr(app, "fetch_many", lambda locs, **kw: {k: ("err", "boom") for k in locs})
-    live.refresh(force=True)
-    assert all(live.prov(c) == "live" for c in CITY_IDS)
-    live.refresh(force=True)                            # all fetches fail -> keep last good data
-    assert all(live.prov(c) == "live" for c in CITY_IDS)
-    assert all(v > 0 for v in live.stale.values())
-    assert all(r["rec"].get("_stale") for c in CITY_IDS for r in live.records[c].values())
-
-def test_refresh_falls_back_when_stale_record_too_old(monkeypatch):
-    live = app.Live()
-    monkeypatch.setattr(app, "fetch_many_paced", lambda locs, **kw: {k: ("ok", _ok_rec(hours_old=7)) for k in locs})
-    live.refresh(force=True)
-    monkeypatch.setattr(app, "fetch_many_paced", lambda locs, **kw: {k: ("err", "boom") for k in locs})
-    monkeypatch.setattr(app, "fetch_many", lambda locs, **kw: {k: ("err", "boom") for k in locs})
-    live.refresh(force=True)
-    assert all(live.prov(c) == "fallback" for c in CITY_IDS)   # older than STALE_MAX_S -> tagged demo series
-
-def test_refresh_respects_interval_and_hard_stop(monkeypatch):
-    live = app.Live()
-    n = {"n": 0}
-    def fake_paced(locs, **kw):
-        n["n"] += 1
-        return {k: ("ok", _ok_rec()) for k in locs}
-    monkeypatch.setattr(app, "fetch_many_paced", fake_paced)
-    live.refresh(force=True); first = n["n"]
-    live.refresh()                                       # inside the interval -> no calls
-    assert n["n"] == first
-    monkeypatch.setattr(app._owm, "usage", lambda: {"month": "x", "calls": int(app.OWM_LIMIT * 0.96)})
-    live.refresh(force=True)                             # over the hard-stop line -> no calls
-    assert n["n"] == first and live.throttled
-
-def test_owm_calls_are_counted(monkeypatch):
-    import weather
-    class R:
-        def raise_for_status(self): pass
-        def json(self): return {"list": []}
-    monkeypatch.setattr(weather, "API_KEY", "k")
-    monkeypatch.setattr(weather.requests, "get", lambda *a, **k: R())
-    before = weather.usage()["calls"]
-    weather.fetch_ward(19.0, 72.8)
-    assert weather.usage()["calls"] == before + 1
-
-def test_budget_endpoint_reports_ist(monkeypatch):
-    monkeypatch.setattr(app.LIVE, "last", dt.datetime(2026, 9, 30, 0, 27, 13, tzinfo=dt.timezone.utc))
-    j = client.get("/api/weather/budget").json()
-    assert j["last_refresh_ist"] == "2026-09-30 05:57:13 IST"          # UTC + 5:30
-    assert j["next_refresh_ist"].startswith("2026-09-30 06:27")          # +30 min
-
-
-# ---------- seasonal factor ----------
-def test_season_factor_peak_cool_and_bounds():
-    for city in CITY_IDS:
-        fs=[app.season_factor(city, m) for m in range(1,13)]
-        assert all(app.SEASON["floor"]-1e-9 <= f <= 1.0 for f in fs)
-        assert max(fs)==pytest.approx(1.0) and min(fs)==pytest.approx(app.SEASON["floor"], abs=1e-3)
-    # Hyderabad: May is the hottest normal month, September is a cool month
-    assert app.season_factor("Hyderabad", 5) > 0.95
-    assert app.season_factor("Hyderabad", 9) < 0.4
-
-def test_season_live_heat_overrides_but_hot_sun_alone_does_not():
-    a_hw=app._a_of(5.0)                       # IMD heat-wave-level departure
-    assert app.season_factor("Hyderabad", 9, a=a_hw, surge=0.0) == pytest.approx(1.0)
-    assert app.season_factor("Hyderabad", 9, a=0.0, surge=0.9) == pytest.approx(1.0)   # UTCI ~45
-    cool=app.season_factor("Hyderabad", 9)
-    assert app.season_factor("Hyderabad", 9, a=0.0, surge=0.5) == pytest.approx(cool)  # UTCI 41 alone: no lift
-
-def test_season_scales_only_static_terms_and_terms_still_sum_to_z():
-    args=(0.1, 0.3, 0.3, 0.8, 1.2, 0.4)
-    _,_,mt1,ht1,zm1,zh1=app._risk_terms(*args, season=1.0)
-    _,_,mt,ht,zm,zh=app._risk_terms(*args, season=0.3)
-    for k in ("intercept","anom","surge","H"):
-        assert mt[k]==mt1[k] and ht[k]==ht1[k]                 # live hazard + intercept untouched
-    for k in ("E","V","AC"):
-        assert mt[k]==pytest.approx(mt1[k]*0.3, abs=0.002)
-    assert abs(sum(mt.values())-zm)<0.011 and abs(sum(ht.values())-zh)<0.011
-
-def test_season_lowers_offseason_risk_and_leaves_peak_unchanged():
-    args=(0.0, 0.5, 0.19, 0.8, 1.3, 0.35)
-    full=app._risk_probs(*args, season=1.0)[0]
-    assert app._risk_probs(*args, season=0.3)[0] < full
-    assert app._risk_probs(*args, season=1.0)[0] == full
-
-def test_season_setting_via_api_and_reset():
-    try:
-        j=client.post("/api/weights", json={"season_enabled":False}).json()
-        assert j["season"]["enabled"] is False and app.season_factor("Hyderabad", 9)==1.0
-        j=client.post("/api/weights", json={"season_enabled":True,"season_floor":0.5}).json()
-        assert j["season"]=={"enabled":True,"floor":0.5}
-        assert app.season_factor("Hyderabad", 9) >= 0.5
-        j=client.post("/api/weights", json={"season_floor":7}).json()
-        assert j["season"]["floor"]==1.0                       # clamped to [0,1]
-    finally:
-        j=client.post("/api/weights", json={"reset":True}).json()
-    assert j["season"]==j["season_defaults"]
-
-def test_snapshot_and_city_summary_carry_season():
-    r=client.get("/api/city/Hyderabad/wards").json()
-    se=r["aggregate"]["season"]
-    assert {"enabled","month","seasonal","factor"} <= set(se)
-
-
-# ---------- IMD absolute-temperature gate ----------
-def test_gate_mild_day_over_cool_normal_is_not_a_heat_wave():
-    # Hyderabad Sept normal Tmax 28.8 -> a 33.4C day is +4.6C but only 33C: not a heat wave
-    dep=33.4-app._mean_tmax("Hyderabad", 9)
-    assert app._a_of(dep) >= 0.5                                  # departure alone would call it one
-    g=app._a_of(dep, 33.4, "Hyderabad")
-    assert g < 0.5                                                # gated below heat-wave onset
-    assert g == pytest.approx(app._a_of(dep*app.IMD_GATE_FLOOR)) # 33.4C is below the ramp start (35C): floor applies
-    assert g > 0.0                                                # soft gate: never a hard zero
-
-def test_gate_leaves_real_heat_waves_unchanged():
-    assert app._a_of(6.5, 43.0, "Hyderabad") == app._a_of(6.5)
-    assert app._a_of(5.0, 40.0, "Hyderabad") == app._a_of(5.0)    # at the plains threshold: full weight
-    assert app._a_of(5.0, 37.0, "Mumbai") == app._a_of(5.0)       # coastal threshold is 37C
-    assert app._a_of(5.0, 37.0, "Hyderabad") < app._a_of(5.0)     # same day is not a plains heat wave
-
-def test_gate_is_switchable_and_resets():
-    try:
-        j=client.post("/api/weights", json={"imd_abs_gate":False}).json()
-        assert j["flags"]["imd_abs_gate"] is False
-        assert app._a_of(4.6, 33.4, "Hyderabad") == app._a_of(4.6)
-    finally:
-        j=client.post("/api/weights", json={"reset":True}).json()
-    assert j["flags"]["imd_abs_gate"] is True
-
-def test_gate_does_not_touch_cool_or_missing_inputs():
-    assert app._a_of(None, 33.0, "Hyderabad") == 0.0
-    assert app._a_of(-2.0, 30.0, "Hyderabad") == app._a_of(-2.0)
-    assert app._a_of(3.0) == app._a_of(3.0, None, None)           # old call style still works
-
-
-def test_gate_never_zeroes_hazard_for_every_ward():
-    """Regression: a hard gate made H and HTSI exactly 0 for every ward whenever UTCI<=36."""
-    city="Hyderabad"; ws=wards_with_sat(city)[:40]
-    norm=app._mean_tmax(city, 9)
-    a=app._a_of(33.4-norm, 33.4, city); H=clamp(0.62*a+0.38*clamp((27.0-36.0)/10.0))   # morning UTCI 27
-    assert H > 0
-    vals=[]
-    for w in ws:
-        env=env_terms(w["sat"], city); ac,_=ac_for_ward(city, env, w["sat"])
-        vals.append(H*vulnerability(city, w)["v"]*env["E"]*(1.0-ac))
-    assert min(vals) > 0 and len(set(round(v,4) for v in vals)) > 1   # non-zero and still ranks wards
+# TAPAS — Technical Documentation
+
+Thermal Assessment & Protection Analytics System. Ward-level heatwave early warning for Indian cities (Mumbai, Ahmedabad, Chennai, Hyderabad).
+
+This document describes how the system works as implemented in the code. Every coefficient marked **UNVALIDATED** is a hand-set default, not a fitted or published value. Where a statement rests on a specific file, the file is named.
+
+---
+
+## Contents
+
+1. [System overview](#1-system-overview)
+2. [Inputs and data sources](#2-inputs-and-data-sources)
+3. [Core factors](#3-core-factors)
+4. [Heat–Health Stress Index](#4-heathealth-stress-index)
+5. [Mortality and hospitalisation risk](#5-mortality-and-hospitalisation-risk)
+6. [Seasonal factor](#6-seasonal-factor)
+7. [Calibration layer](#7-calibration-layer)
+8. [Forecast](#8-forecast)
+9. [Scheduler, alerts and caching](#9-scheduler-alerts-and-caching)
+10. [API](#10-api)
+11. [Testing](#11-testing)
+12. [Known limitations](#12-known-limitations)
+13. [Change log for this revision](#13-change-log-for-this-revision)
+
+---
+
+## 1. System overview
+
+Data flows through the system in five steps:
+
+1. **Ingest.** `weather.py` pulls the OpenWeatherMap forecast into a live store, one record per weather grid cell.
+2. **Static inputs.** ERA5 normals, satellite / MODIS / LCZ layers, Census and HL-14 tables and OSM hospitals are loaded once by `datastore.py`.
+3. **Ward snapshot.** `compute_snapshot(city, ward)` builds the four factors (H, V, E, AC) for each ward from those inputs.
+4. **Outputs.** From the factors it produces the HTSI and its band, the mortality and hospitalisation risk with bands, an optional calibrated relative risk, and the 5-day forecast.
+5. **Delivery.** FastAPI (`backend/app.py`) serves the results to the UI (`static/app.js`), and a scheduler thread (`Sched`) sends alerts.
+
+| Layer | Files |
+|---|---|
+| API and model | `backend/app.py` |
+| Weather ingestion | `backend/weather.py` |
+| Static data loading | `backend/datastore.py` |
+| Calibration | `backend/calibration.py`, `backend/calibrate_risk.py` |
+| Optional DB path | `backend/pg_store.py`, `backend/load_postgis.py`, `backend/sql/schema.sql` |
+| UI | `static/index.html`, `static/app.js`, `static/styles.css` |
+| Tests | `tests/test_tapas.py` |
+| Deployment | `Dockerfile`, `docker-compose.yml` (app + PostGIS; the app falls back to JSON if the DB is absent) |
+
+Run locally: `python backend/main.py` (serves on port 8000).
+
+---
+
+## 2. Inputs and data sources
+
+**Weather and climate**
+- **Live weather:** OpenWeatherMap classic `/data/2.5/forecast` (free tier), in 3-hour steps for 5 days. Solar radiation is *estimated* from a clear-sky model scaled by cloud cover, and each such record is flagged `_sw_estimated`. If no API key is set, a labelled demo fallback series is used.
+- **Weather grid:** wards are snapped to a 0.028° grid, and the wards in one cell share a weather record.
+- **Climatology:** ERA5 reanalysis via the Open-Meteo archive, daily Tmax 2014–2024. Stored in `data/cities/<City>/baseline.json` as `mean_monthly_tmax` (the "normal") and `p90_monthly_tmax` (display only).
+
+**Geography and environment**
+- **Ward boundaries:** OpenStreetMap ward relations (`data/geo/*_Wards.geojson`, `data/cities/<City>/wards.geojson`). Hyderabad uses 144 wards from a 2017-dated extract (see section 12).
+- **Land cover:** Esri World Imagery, thresholded on true colour to give `veg_frac`, `wat_frac` and `built_frac`. A rough proxy, not a land-cover product.
+- **MODIS:** NASA GIBS, Terra. NDVI and daytime land-surface temperature per ward.
+- **LCZ:** WUDAPT global Local Climate Zone map (Demuzere et al. 2022), giving a per-ward built share.
+
+**People and services**
+- **Census:** Census of India 2011 (city level) and HL-14 tables (ward level): population, children 0–6, literacy, slum share, elderly 60+, disability, density, kutcha housing.
+- **Health facilities:** OpenStreetMap via Overpass (`amenity=hospital`), counted point-in-ward in `data/cities/<City>/health.json`.
+
+**Health outcomes (optional)**
+- **Published relative risks:** `data/observed/published_anchors.json`, used as priors in calibration.
+- **Observed deaths and admissions:** `data/observed/observed.csv`. Enables fitting when there is enough data.
+
+---|---|---|
+| Live weather | OpenWeatherMap classic `/data/2.5/forecast` (free tier) | 3-hour steps, 5 days ahead. Solar radiation is **estimated** from a clear-sky model scaled by cloud cover, and every such record is flagged `_sw_estimated`. If no key is set, a labelled demo fallback series is used. |
+| Weather grid | Wards snapped to a 0.028° grid | One weather record per grid cell, shared by the wards in it. |
+| Climatology | ERA5 reanalysis via Open-Meteo archive, daily Tmax 2014–2024 | `data/cities/<City>/baseline.json`: `mean_monthly_tmax` (the "normal") and `p90_monthly_tmax` (display only). |
+| Ward boundaries | OpenStreetMap ward relations (`data/geo/*_Wards.geojson`, `data/cities/<City>/wards.geojson`) | Hyderabad uses 144 wards from a 2017-dated OSM extract. See section 12. |
+| Land cover | Esri World Imagery basemap, true-colour threshold | Gives `veg_frac`, `wat_frac`, `built_frac`. A rough proxy, not a land-cover product. |
+| MODIS | NASA GIBS, Terra | NDVI and daytime land-surface temperature per ward. |
+| LCZ | WUDAPT global Local Climate Zone map (Demuzere et al. 2022) | Per-ward built share. |
+| Census | Census of India 2011 (city level) and HL-14 tables (ward level) | Population, children 0–6, literacy, slum share, elderly 60+, disability, density, kutcha housing. |
+| Health facilities | OpenStreetMap via Overpass (`amenity=hospital`) | Point-in-ward counts, `data/cities/<City>/health.json`. |
+| Published relative risks | `data/observed/published_anchors.json` | Used as priors in calibration. |
+| Observed deaths / admissions | `data/observed/observed.csv` | Optional. Enables fitting when large enough. |
+
+---
+
+## 3. Core factors
+
+### 3.1 Hazard, H
+
+```
+dep      = daymax − normal Tmax(month)              (°C)
+a        = anomaly driver, 0..1 (see below)
+surge    = clamp((UTCI − 36) / 10)
+H        = clamp(0.62·a + 0.38·surge)
+```
+
+`UTCI` is computed with `pythermalcomfort`. Mean radiant temperature is `tair + 8·solar` between hours 6 and 18 (`+2` otherwise), where `solar = clamp(shortwave / 700)`. Wind is clamped to 0.5–17 m/s, and relative humidity defaults to 50% if missing.
+
+**Anomaly driver `a` (`_a_of`)** follows the IMD heat-wave departure thresholds:
+
+| Departure `dep` | `a` |
+|---|---|
+| ≤ 0 | 0 (or negative down to −1 at −6.4 °C if `sym_anom` is on) |
+| 0 → 4.5 °C | 0 → 0.5, linear |
+| 4.5 → 6.4 °C | 0.5 → 1.0, linear |
+| > 6.4 °C | 1.0 |
+
+### 3.2 IMD absolute-temperature gate
+
+IMD requires both a departure of 4.5 °C or more and a hot absolute maximum (40 °C plains, 37 °C coastal) before declaring a heat wave. The original code checked only the departure, so a mild 33 °C day over a cool-month normal (for example Hyderabad in September, normal 28.8 °C) scored as a heat wave.
+
+When `FLAGS["imd_abs_gate"]` is on (default), a positive departure is multiplied by:
+
+```
+g = 0.25 + 0.75 · clamp((Tmax − (threshold − 5)) / 5)      threshold = 40 (plains) or 37 (coastal)
+```
+
+So the factor is 0.25 at 5 °C below the threshold (and lower) and 1.0 at the threshold. The floor of 0.25 (`IMD_GATE_FLOOR`) is deliberate: a first version used a hard zero, which made H, and therefore HTSI, exactly 0 for every ward on any day when UTCI was 36 or below. That erased ward-to-ward ranking. With the floor, a +4.6 °C departure on a 33 °C day gives `a ≈ 0.13` instead of 0.53. Coastal cities are listed in `COASTAL_CITIES` (Mumbai, Chennai). The 5 °C ramp width (`IMD_GATE_RAMP`) and the floor are **UNVALIDATED**. Real heat waves (Tmax at or above the threshold) are unchanged.
+
+The gate is applied at every call site of `_a_of`: current severity, snapshot, hourly and daily forecast, calibration features, the AC-uplift scenario, and the preventive-measures simulator.
+
+### 3.3 Exposure, E
+
+```
+E = clamp(0.55·built + 0.45·max(0, 1 − veg − 0.6·water))
+E ← 0.75·E + 0.25·clamp((LST − city median LST)/6 + 0.5)     if MODIS LST present
+E ← 0.85·E + 0.15·LCZ built share                             if LCZ present
+```
+
+### 3.4 Vulnerability, V
+
+A seven-indicator index (children 0–6, literacy, slum share, elderly 60+, disability, density, kutcha housing) weighted by `W_V` (defaults 0.22, 0.13, 0.18, 0.13, 0.09, 0.13, 0.12). Missing indicators are dropped and the weights renormalised.
+
+```
+V = clamp(0.92 + 0.30·index, 0.8, 1.32)        (V_SCALE lo = 0.92, hi = 0.30)
+```
+
+Most indicators are city-level Census 2011 values. Kutcha housing is per ward from HL-14 where the ward matched, otherwise the city row is used. Hyderabad has no official C-14 city row, so its elderly share (0.068) comes from the Hyderabad district row of C-14 Andhra Pradesh and is labelled as such. The index-to-V mapping is **UNVALIDATED**.
+
+### 3.5 Adaptive capacity, AC
+
+```
+AC = clamp(city_base × mod, 0.05, 0.90)
+mod = 1 − 0.18·Δbuilt + 0.16·Δgreen + 0.16·Δelectricity + 0.10·Δhealth + 0.08·Δwater
+```
+
+Each `Δ` is the ward's deviation from the city median, normalised and clamped to [−1, 1]. City bases: Ahmedabad 0.42, Hyderabad 0.50, Chennai 0.55 (Mumbai in `datastore.py`). The bases and modifier coefficients are **UNVALIDATED**. AC is a proxy for cooling access, not survey data.
+
+---
+
+## 4. Heat–Health Stress Index
+
+```
+HTSI = (wH·H) × (wV·V) × (wE·E) × (1 − wAC·AC) × scale
+```
+
+With the default weights (all 1.0) this is `H × V × E × (1 − AC)`. HTSI is clamped and banded by `BAND_T`:
+
+| Band | HTSI |
+|---|---|
+| Low | < 0.055 |
+| Moderate | 0.055 – 0.115 |
+| High | 0.115 – 0.185 |
+| Severe | ≥ 0.185 |
+
+The national heat-watch panel, city peak band and alert flow all use the HTSI band.
+
+---
+
+## 5. Mortality and hospitalisation risk
+
+Two logistic models on the same weighted factors:
+
+```
+z = intercept + c_anom·a + c_surge·surge + c_H·Hw
+              + s·[ c_E·Ew + c_V·(Vw − 1) − c_AC·ACw ]
+P = 1 / (1 + e^(−z))
+```
+
+`Hw, Ew, Vw, ACw` are the weighted factors used in HTSI. `s` is the season factor (section 6).
+
+| Term | Mortality | Hospitalisation |
+|---|---|---|
+| intercept | −4.3 | −4.0 |
+| anom | 3.0 | 3.2 |
+| surge | 1.6 | 1.8 |
+| H | 1.5 | 1.2 |
+| E | 1.4 | 1.3 |
+| V | 4.0 | 3.2 |
+| AC | 1.8 | 1.4 |
+
+All coefficients are **UNVALIDATED** defaults. Editable at runtime through `/api/weights`.
+
+Risk bands from `RISK_BAND_T`: Low < 0.06, Moderate < 0.22, High < 0.45, Severe above. The HTSI and risk band scales are independent by design.
+
+**Interpretation.** `P` is a relative, modelled score. It is not a forecast probability of death. The per-term contributions are returned in `factors.risk_terms` and sum to `z` within rounding.
+
+---
+
+## 6. Seasonal factor
+
+The static ward terms (E, V, AC) applied all year, so dense low-cooling wards could read Moderate or High in cool months. The season factor scales only those three terms. The intercept and the live-hazard terms (`anom`, `surge`, `H`) are not scaled, and HTSI is unchanged.
+
+```
+rel      = (normal Tmax(month) − coolest month) / (hottest month − coolest month)
+seasonal = floor + (1 − floor)·rel                       floor = 0.25 (default)
+live     = clamp(max(2·a, (surge − 0.5)/0.3))
+s        = max(seasonal, live)
+```
+
+- `live` restores full weight when the anomaly driver reaches heat-wave onset (`a = 0.5`), or when UTCI reaches about 44 (`surge = 0.8`). A sunny UTCI reading of 36–41 alone does not lift the season.
+- If a city's monthly climatology is unusable (fewer than 12 months, or range under 1 °C), no season is applied and the reason is returned in `basis`.
+- Applied in the snapshot, the 5-day forecast, the AC-uplift scenario and the preventive-measures simulator.
+- Exposed in `factors.season` (per ward), `aggregate.season` (city), and `season_factor` on each forecast day.
+- Settings: `season_enabled`, `season_floor` in `/api/weights`. The floor and the override thresholds are **UNVALIDATED**.
+
+Example seasonal factors from the shipped climatology (`live` = 0):
+
+| City | Jan | Mar | May | Jul | Sep | Nov |
+|---|---|---|---|---|---|---|
+| Hyderabad | 0.27 | 0.77 | 1.00 | 0.33 | 0.31 | 0.34 |
+| Mumbai | 0.43 | 0.88 | 1.00 | 0.25 | 0.34 | 0.91 |
+| Ahmedabad | 0.25 | 0.67 | 1.00 | 0.54 | 0.50 | 0.52 |
+| Chennai | 0.26 | 0.65 | 0.98 | 0.86 | 0.70 | 0.32 |
+
+---
+
+## 7. Calibration layer
+
+Adds a relative risk versus a normal day next to the logistic output. The logistic is not changed. Each output is labelled with its basis, in priority order:
+
+1. **fitted** — Poisson count model on `observed.csv`. Requires at least 365 rows and 15 hot days (`a ≥ 0.25`).
+2. **published-anchor** — slope anchored to a published relative risk (prior, not a fit).
+3. **default** — the hand-set logistic only.
+
+```
+RR = exp(β_a·a + β_s·surge [+ γ·z_admissions])         capped at 4.0
+```
+
+Ward differences scale `(RR − 1)` by the ward's `V·E·(1 − AC)` multiplier relative to the city median. City data can calibrate the level of risk. It cannot validate ward-to-ward differences. An admissions feed older than 2 days is not used. Mortality is anchored to published results (de Bont et al. 2024). Hospitalisation is not calibrated.
+
+Fit with `backend/calibrate_risk.py`, then `POST /api/calibration/reload`.
+
+---
+
+## 8. Forecast
+
+For each ward, the 5-day window is built from 3-hour steps: hourly UTCI (vectorised), a per-step HTSI, then a per-day peak. Per day it returns peak HTSI and band, peak UTCI, mortality and hospitalisation probability and band, `season_factor`, and a confidence value (1.0 within 24 h, 0.85 to 72 h, 0.62 to 96 h, 0.45 beyond).
+
+Model confidence (`model_confidence`) blends factor confidences: weather 0.85 if live (0.60 mixed, 0.50 fallback), environment 0.70, vulnerability 0.35, AC 0.50.
+
+---
+
+## 9. Scheduler, alerts and caching
+
+- **Refresh.** Weather refreshes every `HW_LIVE_REFRESH_S` seconds (default 1800). The interval is clamped to stay inside the OpenWeatherMap free tier (`/api/weather/budget`, `/api/cadence`). A failed refresh reuses the last good record until it is too old, then falls back.
+- **National watch.** `Sched.at_risk()` recomputes all wards only when live weather actually refreshed, and caches the result between refreshes. This is why a model change does not appear until the next refresh.
+- **Event alerts.** Sent on escalation to High or Severe. Cooldown: 6 h for High, 3 h for Severe.
+- **Digest.** Periodic digest with cross-suppression, so wards already alerted within the window are not listed again.
+- **Delivery.** Twilio SMS/WhatsApp if credentials are set. Otherwise sends are recorded in `data/outbox.jsonl` and labelled simulated.
+- **Caches.** `_SNAP_CACHE`, `_V_CACHE`, `_MED_CACHE`. Cleared when `/api/weights` is posted.
+
+---
+
+## 10. API
+
+**Views**
+- `GET /api/cities`, `/api/india`, `/api/india/watch`, `/api/india/basemap` — city list and national heat-watch.
+- `GET /api/city/{city}/wards` — ward properties, band distribution (`aggregate.distribution`), outlook and city `season`.
+- `GET /api/city/{city}/geometry` — static ward geometry (cache it client-side).
+- `GET /api/city/{city}/ward/{id}` — full ward snapshot: factors, `risk_terms`, `season`, calibration, forecast.
+- `GET /api/trend` — 30-day trend.
+
+**Scenarios and planning**
+- `GET /api/city/{city}/ward/{id}/projection` — cooling-access (AC) uplift scenarios.
+- `GET` / `POST /api/scenario/preventive` — preventive-measures simulator (illustrative).
+- `GET /api/city/{city}/allocation` — wards ranked by modelled priority.
+- `POST /api/sim` — labelled heat-wave simulator (temperature offset).
+- `GET /api/city/{city}/export.csv` — per-ward audit export.
+
+**Configuration and calibration**
+- `GET` / `POST /api/weights` — read or change weights, coefficients, bands, flags and season. `reset: true` restores defaults.
+- `GET /api/calibration`, `POST /api/calibration/reload` — calibration status and reload.
+
+**Alerts and operations**
+- `GET /api/outbox`, `/api/twilio/status`, and `POST /api/alerts/test` — alert delivery.
+- `GET /api/weather/budget`, `/api/cadence`, `/api/db/status` — weather quota, refresh cadence and database status.
+
+`POST /api/weights` fields added in this revision: `season_enabled`, `season_floor`, `imd_abs_gate`. Values persist to `data/weights.json`.
+
+---
+
+## 11. Testing
+
+```
+cd backend && TAPAS_NOSCHED=1 python3 -m pytest ../tests -q
+```
+
+Offline-safe (no weather network, scheduler disabled). Current result: **56 passed, 1 failed**.
+
+Tests added: season bounds and peak/cool months, live-heat override, scaling of static terms only with `risk_terms` still summing to `z`, API switch and reset, city summary carries season, four tests for the IMD gate, and a regression test that HTSI is never exactly zero for every ward.
+
+The one failure, `test_configurable_risk_surface_and_reset`, existed before these changes. It asserts `_a_of(−3.0) == −1.0` with `sym_anom` on, but the code returns −3/6.4 = −0.47 (the docstring says the value reaches −1 at −6.4 °C). Either the test or the formula needs updating.
+
+---
+
+## 12. Known limitations
+
+**Data currency**
+- Hyderabad ward boundaries (144) and population (6,731,790, Census 2011, 650 km²) are the old GHMC. GHMC was reorganised in December 2025 to 300 wards and split into three corporations in February 2026. The panel's ward count and population are therefore out of date.
+- Vulnerability inputs are Census 2011.
+
+**Model status**
+- Nearly all coefficients are unvalidated defaults. Ward-to-ward differences are modelled, not measured.
+- Mortality and hospitalisation values are relative modelled scores, not clinical predictions.
+- No local death or admission records are loaded by default.
+
+**Inputs**
+- Land cover comes from a true-colour threshold on a basemap image, not NDVI or an official land-cover product.
+- Solar radiation is estimated, not measured.
+- AC is a proxy built from satellite and Census signals.
+- Hourly forecast steps compare each step's air temperature with the monthly normal of *daily maximum* temperature, so hourly anomalies are systematically conservative relative to the daily comparison.
+
+**Configuration**
+- Coastal versus plains for the IMD gate is a hard-coded list of two cities.
+- The gate ramp (5 °C), gate floor (0.25), season floor (0.25) and live-override thresholds are unvalidated.
+- The season factor is a smooth heuristic and does not model monsoon versus winter differences separately. A month is scored only by its normal Tmax.
+
+---
+
+## 13. Change log for this revision
+
+- **Season factor.** `SEASON`, `season_info`, `season_factor`, scaling in `_risk_terms` and `_risk_probs`, wiring into the snapshot, forecast, scenarios and simulator, new `/api/weights` fields, persistence, and a note in the city panel. Files: `backend/app.py`, `static/app.js`.
+- **IMD absolute-temperature gate.** Added in `_a_of` and at all its call sites, with the `imd_abs_gate` flag. Files: `backend/app.py`.
+- **Tests** for the season factor, the gate and the no-all-zero regression. Files: `tests/test_tapas.py`.
+- **Docs.** Formula, season and gate notes in `README.md`, and this file.
