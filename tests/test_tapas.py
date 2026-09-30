@@ -605,3 +605,55 @@ def test_budget_endpoint_reports_ist(monkeypatch):
     j = client.get("/api/weather/budget").json()
     assert j["last_refresh_ist"] == "2026-09-30 05:57:13 IST"          # UTC + 5:30
     assert j["next_refresh_ist"].startswith("2026-09-30 06:27")          # +30 min
+
+
+# ---------- seasonal factor ----------
+def test_season_factor_peak_cool_and_bounds():
+    for city in CITY_IDS:
+        fs=[app.season_factor(city, m) for m in range(1,13)]
+        assert all(app.SEASON["floor"]-1e-9 <= f <= 1.0 for f in fs)
+        assert max(fs)==pytest.approx(1.0) and min(fs)==pytest.approx(app.SEASON["floor"], abs=1e-3)
+    # Hyderabad: May is the hottest normal month, September is a cool month
+    assert app.season_factor("Hyderabad", 5) > 0.95
+    assert app.season_factor("Hyderabad", 9) < 0.4
+
+def test_season_live_heat_overrides_but_hot_sun_alone_does_not():
+    a_hw=app._a_of(5.0)                       # IMD heat-wave-level departure
+    assert app.season_factor("Hyderabad", 9, a=a_hw, surge=0.0) == pytest.approx(1.0)
+    assert app.season_factor("Hyderabad", 9, a=0.0, surge=0.9) == pytest.approx(1.0)   # UTCI ~45
+    cool=app.season_factor("Hyderabad", 9)
+    assert app.season_factor("Hyderabad", 9, a=0.0, surge=0.5) == pytest.approx(cool)  # UTCI 41 alone: no lift
+
+def test_season_scales_only_static_terms_and_terms_still_sum_to_z():
+    args=(0.1, 0.3, 0.3, 0.8, 1.2, 0.4)
+    _,_,mt1,ht1,zm1,zh1=app._risk_terms(*args, season=1.0)
+    _,_,mt,ht,zm,zh=app._risk_terms(*args, season=0.3)
+    for k in ("intercept","anom","surge","H"):
+        assert mt[k]==mt1[k] and ht[k]==ht1[k]                 # live hazard + intercept untouched
+    for k in ("E","V","AC"):
+        assert mt[k]==pytest.approx(mt1[k]*0.3, abs=0.002)
+    assert abs(sum(mt.values())-zm)<0.011 and abs(sum(ht.values())-zh)<0.011
+
+def test_season_lowers_offseason_risk_and_leaves_peak_unchanged():
+    args=(0.0, 0.5, 0.19, 0.8, 1.3, 0.35)
+    full=app._risk_probs(*args, season=1.0)[0]
+    assert app._risk_probs(*args, season=0.3)[0] < full
+    assert app._risk_probs(*args, season=1.0)[0] == full
+
+def test_season_setting_via_api_and_reset():
+    try:
+        j=client.post("/api/weights", json={"season_enabled":False}).json()
+        assert j["season"]["enabled"] is False and app.season_factor("Hyderabad", 9)==1.0
+        j=client.post("/api/weights", json={"season_enabled":True,"season_floor":0.5}).json()
+        assert j["season"]=={"enabled":True,"floor":0.5}
+        assert app.season_factor("Hyderabad", 9) >= 0.5
+        j=client.post("/api/weights", json={"season_floor":7}).json()
+        assert j["season"]["floor"]==1.0                       # clamped to [0,1]
+    finally:
+        j=client.post("/api/weights", json={"reset":True}).json()
+    assert j["season"]==j["season_defaults"]
+
+def test_snapshot_and_city_summary_carry_season():
+    r=client.get("/api/city/Hyderabad/wards").json()
+    se=r["aggregate"]["season"]
+    assert {"enabled","month","seasonal","factor"} <= set(se)
