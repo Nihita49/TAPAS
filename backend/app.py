@@ -263,7 +263,14 @@ BAND_T_DEFAULTS=list(BAND_T)
 #   Severe Heat Wave  : departure > 6.4 degC
 IMD_HW_DEP=4.5
 IMD_SHW_DEP=6.4
-FLAGS={"sym_anom":False}       # True => anomaly term may also lower risk (a in [-1,1])
+FLAGS={"sym_anom":False,          # True => anomaly term may also lower risk (a in [-1,1])
+       "imd_abs_gate":True}       # True => a departure only counts as heat when Tmax is also hot in absolute terms
+# IMD heat-wave criteria need BOTH a departure >=4.5C AND an absolute Tmax (plains 40C, coastal 37C).
+# The gate ramps the anomaly driver from 0 at (threshold-5C) to full at the threshold, so a mild
+# 33C day that is +4.6C over a cool-month normal is not scored as a heat wave. UNVALIDATED ramp width.
+IMD_ABS_TMAX={"plains":40.0,"coastal":37.0}
+IMD_GATE_RAMP=5.0
+COASTAL_CITIES={"Mumbai","Chennai"}
 # Seasonal factor (mortality/hospitalisation logistics only; HTSI is untouched).
 # The static ward terms (E exposure, V vulnerability uplift, AC cooling access) are
 # scaled by how close the month's normal Tmax is to the city's hottest month, so a
@@ -308,7 +315,9 @@ def _load_weights_file():
         if isinstance(bt,list) and len(bt)==3 and 0<bt[0]<bt[1]<bt[2]<1: BAND_T[:]=[float(x) for x in bt]
         rbt=d.get("risk_band_t")
         if isinstance(rbt,list) and len(rbt)==3 and 0<rbt[0]<rbt[1]<rbt[2]<1: RISK_BAND_T[:]=[float(x) for x in rbt]
-        if isinstance(d.get("flags"),dict): FLAGS["sym_anom"]=bool(d["flags"].get("sym_anom",False))
+        if isinstance(d.get("flags"),dict):
+            FLAGS["sym_anom"]=bool(d["flags"].get("sym_anom",False))
+            FLAGS["imd_abs_gate"]=bool(d["flags"].get("imd_abs_gate",True))
         se=d.get("season")
         if isinstance(se,dict):
             if "enabled" in se: SEASON["enabled"]=bool(se["enabled"])
@@ -553,7 +562,7 @@ def severity(city, rec, series, now):
     anom=(daymax-base) if base is not None else None          # vs P90 (display only)
     norm=_mean_tmax(city,now.month)
     dep=(daymax-norm) if norm is not None else None           # vs normal (IMD criterion)
-    anom_driver=_a_of(dep)
+    anom_driver=_a_of(dep, daymax, city)
     # absolute surge term (only extreme UTCI counts; avoids year-round humid flags)
     surge=clamp((utci_v-36.0)/10.0) if utci_v else 0.0
     hsev=clamp(0.62*anom_driver+0.38*surge)
@@ -564,12 +573,15 @@ def _mean_tmax(city, month):
     """City normal = ERA5 2014-2024 mean daily Tmax for that month (degC)."""
     return STORE.cities[city]["baseline"]["mean_monthly_tmax"].get(str(month))
 
-def _a_of(dep):
+def _a_of(dep, tmax=None, city=None):
     """Anomaly driver from IMD departure-from-normal `dep` (degC), 0..1:
        0 at normal -> 0.5 at IMD Heat Wave onset (4.5) -> 1.0 at IMD Severe (6.4).
        Default floors cool days at 0; FLAGS['sym_anom'] lets below-normal days
        go negative (down to -1 at -6.4 degC)."""
     if dep is None: return 0.0
+    if dep>0 and tmax is not None and city is not None and FLAGS.get("imd_abs_gate"):
+        thr=IMD_ABS_TMAX["coastal" if city in COASTAL_CITIES else "plains"]
+        dep=dep*clamp((tmax-(thr-IMD_GATE_RAMP))/IMD_GATE_RAMP)
     if dep<=0:
         return clamp(dep/IMD_SHW_DEP,-1,0) if FLAGS.get("sym_anom") else 0.0
     if dep<=IMD_HW_DEP: return 0.5*dep/IMD_HW_DEP
@@ -666,7 +678,7 @@ def daily_heat_features(city, series, day):
     if not obs: return None
     daymax=max(o["tair"] for o in obs)
     norm=_mean_tmax(city, day.month)
-    a=_a_of(daymax-norm) if norm is not None else 0.0
+    a=_a_of(daymax-norm, daymax, city) if norm is not None else 0.0
     nan=float("nan")
     u=_utci_batch([o["tair"] for o in obs],
                   [o["rh"] if o["rh"] is not None else nan for o in obs],
@@ -742,7 +754,7 @@ def compute_snapshot(city, ward, rec, now):
     conf=model_confidence(prov)
     anom=res["anom"]
     # mortality/hospitalisation risk: respond to hazard anomaly + exposure
-    a=_a_of(res.get("dep"))
+    a=_a_of(res.get("dep"), res.get("daymax"), city)
     surge=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
     sinfo=season_info(city, now.month, a, surge)
     mort,hosp,mt,ht,zm,zh=_risk_terms(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac,sinfo["factor"])
@@ -830,7 +842,7 @@ def forecast(city,ward,rec,now,env,ac):
         base=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(t.month))
         surge=clamp((u-36.0)/10.0)
         norm=_mean_tmax(city,t.month)
-        anom_d=_a_of(o["tair"]-norm) if norm is not None else 0.0
+        anom_d=_a_of(o["tair"]-norm, o["tair"], city) if norm is not None else 0.0
         hsev=clamp(0.62*anom_d+0.38*surge)
         htsi=(WEIGHTS["H"]*hsev)*(WEIGHTS["V"]*vfor["v"])*(WEIGHTS["E"]*env["E"])*(1.0-WEIGHTS["AC"]*ac)*WEIGHTS["scale"]
         ha=(t.replace(tzinfo=None)-now).total_seconds()/3600.0
@@ -846,7 +858,7 @@ def forecast(city,ward,rec,now,env,ac):
         anom=(daymax-baseD) if baseD is not None else None
         normD=_mean_tmax(city,dd.month)
         peak=max(arr,key=lambda x:x["h"])
-        a=_a_of(daymax-normD if normD is not None else None)
+        a=_a_of(daymax-normD if normD is not None else None, daymax, city)
         srg=clamp((peak["u"]-36.0)/10.0) if peak["u"] else 0.0
         hsev_day=clamp(0.62*a+0.38*srg)
         sf=season_info(city, dd.month, a, srg)
@@ -1183,7 +1195,7 @@ def projection(city,wid):
     env=snap["environment"]["satellite"]; ac=snap["environment"].get("ac_ward",snap["environment"]["ac_city"])
     f=snap["factors"]; VV=f["V"]
     utci=snap["current"].get("utci"); dep=snap["current"].get("dep_normal")
-    a=_a_of(dep)
+    a=_a_of(dep, snap["current"].get("daymax"), city)
     surge=clamp((utci-36.0)/10.0) if utci else 0.0
     E=env["E"]; H=f["H"]
     sf=season_factor(city, now.month, a, surge)
@@ -1260,12 +1272,12 @@ def simulate_preventive_impact(city, ward_id, date, selected_measures):
             peak=max(us,key=lambda x:x[1])
             base=STORE.cities[city]["baseline"]["p90_monthly_tmax"].get(str(peak[0]["t"].month))
             norm=_mean_tmax(city,peak[0]["t"].month)
-            a=_a_of(peak[0]["tair"]-norm if norm is not None else None)
+            a=_a_of(peak[0]["tair"]-norm if norm is not None else None, peak[0]["tair"], city)
             s=clamp((peak[1]-36.0)/10.0)
     Hh=None
     if a is None:
         res=severity(city,rec,series,now)
-        a=_a_of(res.get("dep")); s=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
+        a=_a_of(res.get("dep"), res.get("daymax"), city); s=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
         Hh=res["hsev"]
     if Hh is None: Hh=clamp(0.62*a+0.38*s)
     try: _m=dt.date.fromisoformat(date).month if date else now.month
@@ -1329,7 +1341,7 @@ class WgtReq(BaseModel):
     hosp_intercept:float=None; hosp_anom:float=None; hosp_surge:float=None; hosp_E:float=None; hosp_V:float=None; hosp_AC:float=None
     band1:float=None; band2:float=None; band3:float=None
     rband1:float=None; rband2:float=None; rband3:float=None
-    sym_anom:bool=None
+    sym_anom:bool=None; imd_abs_gate:bool=None
     season_enabled:bool=None; season_floor:float=None
     measure_effects:dict=None
     reset:bool=None
@@ -1370,7 +1382,7 @@ def set_weights(req:WgtReq):
                     "disability":0.09,"density":0.13,"kutcha":0.12})
         for k in ("mort","hosp"): RISK_COEF[k].update(RISK_COEF_DEFAULTS[k])
         for k in MEASURE_EFFECTS: MEASURE_EFFECTS[k].update(MEASURE_EFFECTS_DEFAULTS[k])
-        BAND_T[:]=list(BAND_T_DEFAULTS); RISK_BAND_T[:]=list(RISK_BAND_T_DEFAULTS); FLAGS["sym_anom"]=False
+        BAND_T[:]=list(BAND_T_DEFAULTS); RISK_BAND_T[:]=list(RISK_BAND_T_DEFAULTS); FLAGS["sym_anom"]=False; FLAGS["imd_abs_gate"]=True
         SEASON.update(SEASON_DEFAULTS)
     for k,v in [("H",req.H),("V",req.V),("E",req.E),("AC",req.AC),("scale",req.scale)]:
         if v is not None: WEIGHTS[k]=float(v)
@@ -1393,6 +1405,7 @@ def set_weights(req:WgtReq):
         b=[float(x) for x in rbt]
         if 0.001<b[0]<b[1]<b[2]<0.999: RISK_BAND_T[:]=b
     if req.sym_anom is not None: FLAGS["sym_anom"]=bool(req.sym_anom)
+    if req.imd_abs_gate is not None: FLAGS["imd_abs_gate"]=bool(req.imd_abs_gate)
     if req.season_enabled is not None: SEASON["enabled"]=bool(req.season_enabled)
     if req.season_floor is not None: SEASON["floor"]=max(0.0,min(1.0,float(req.season_floor)))
     for k,v in (req.measure_effects or {}).items():
