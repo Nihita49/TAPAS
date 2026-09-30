@@ -497,7 +497,12 @@ function cityOverviewTab(agg){
     }).join("")+
     `</svg>`;
   return `<div class="prov">Wards by Mortality-risk band right now:</div>${distSvg}
-    <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">${total} wards · live weather + real satellite environment.</div>`;
+    <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">${total} wards · live weather + real satellite environment.</div>${seasonNote(agg.season)}`;
+}
+function seasonNote(se){
+  if(!se||!se.enabled||se.factor===undefined||se.factor>=0.999||!se.normal_tmax)return "";
+  const mo=new Date(2000,(se.month||1)-1,1).toLocaleString("en",{month:"long"});
+  return `<div style="font-size:11px;color:var(--muted);margin:0 0 8px">Seasonal adjustment: ${mo} is a cooler part of the year here (normal max ${se.normal_tmax}°C), so the standing exposure and vulnerability terms carry ${Math.round(se.seasonal*100)}% weight. Heat-wave-level conditions override this automatically.</div>`;
 }
 function cityForecastTab(agg){
   if(!agg||!agg.distribution)return `<div class="prov">Loading…</div>`;
