@@ -28,8 +28,7 @@
 | **Team Name** | **Ecolytes** |
 
 - 🌐 **Live Demo:** <https://tapas-1-8mey.onrender.com>
-- 🎥 **Demo Video:** _add link_
-- 📑 **Presentation (PPT):** _add link_
+- 🎥 **Demo Video:** <https://youtu.be/VvamWQAeTxo>
 
 ---
 
