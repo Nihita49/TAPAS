@@ -13,6 +13,14 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const BCOL={"Low":"#2e9e5b","Moderate":"#e8a51d","High":"#f0722c","Severe":"#dd3a3a","Insufficient":"#c7d0db"};
 const LAYERLAB={"htsi":"Hazard risk (HTSI)","mort":"Mortality risk","hosp":"Hospitalization Spike","utci":"UTCI hazard (°C)","veg":"Satellite vegetation (%)"};
+/* Timestamps from the API are UTC (some without a trailing Z). Show them in IST for users in India. */
+function ist(ts){
+  if(!ts) return "";
+  let t=String(ts); if(!/(Z|[+-]\d\d:?\d\d)$/.test(t)) t+="Z";
+  const d=new Date(t); if(isNaN(d)) return String(ts).slice(0,16).replace("T"," ")+" UTC";
+  const f=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",year:"numeric",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
+  return f.replace(",","")+" IST";
+}
 const INDIA_CENTER=[22.9,79.0], INDIA_ZOOM=5;
 const ESRI_GRAY_BASE="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}";
 const ESRI_GRAY_REF="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}";
@@ -220,7 +228,7 @@ function renderWatch(w,mount){
   }).join("");
   const hot = active>0 ? `<span style="color:#c2410c;font-weight:700">${active} ward${active>1?"s":""} now High/Severe</span>` : `<span>no ward currently escalated to High/Severe</span>`;
   mount.innerHTML=`<div class="nw-head"><h3>Live national heat-watch</h3>
-     <span class="nw-ts" title="Ward snapshots recomputed on the live model">updated ${(w.ts||"").slice(0,16).replace("T"," ")} UTC</span></div>
+     <span class="nw-ts" title="Ward snapshots recomputed on the live model">updated ${ist(w.ts)}</span></div>
      <div class="nw-sum"><span><b>${total.available||0}</b> wards resolved</span>
      <span><b style="color:#c2410c">${active}</b> High/Severe</span>
      <span>${hot}</span></div>
@@ -901,7 +909,7 @@ Signs: high body temp, confusion, no sweating. Call 112/108 now.</pre>`).join(""
     SMS/WhatsApp delivery is wired up via Twilio; going fully live just needs a paid Twilio plan, so alerts are logged below rather than actually sent for now.
     <div class="prov" style="margin-top:6px">Example High/Severe ward alerts, one per pilot city:</div>
     ${examples}</div>`;
-  const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+note+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(e.ts)} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
+  const html=`<h2>Alert outbox — SMS / WhatsApp</h2>`+note+(r.length?`<div class="alert">`+r.map(e=>`<div class="row ${e.type}"><div class="meta">${esc(ist(e.ts))} · <b>${esc(e.type)}</b> · ${esc(e.ward)} · ${esc(e.band)} · ${e.sim_active?"<b>simulator</b>":""}</div><pre>${esc(e.message)}</pre>${e.personal?`<div style="font-size:11.5px;color:#44566e;margin:4px 0">हिं: ${esc((e.personal.hi||[])[0]||"")}<br>${esc(e.personal.state_lang_name||"")}: ${esc((e.personal.state||[])[0]||"")}</div>`:""}${e.emergency?`<div style="font-size:11.5px;color:#a12626;margin:4px 0"><b>🚨 Emergency ${esc((e.emergency.numbers||["112","108"]).join("/"))}:</b> ${esc(e.emergency.en.signs)} ${esc(e.emergency.en.call)}<br>हिं: ${esc(e.emergency.hi.signs)} ${esc(e.emergency.hi.call)}<br>${esc(e.emergency.state_lang_name||"")}: ${esc(e.emergency.state.signs)} ${esc(e.emergency.state.call)}</div>`:""}<div style="font-size:11px;color:#157a35">${esc(e.channel_result)}</div></div>`).join("")+`</div>`:`<p>No alerts yet. Open a city, enable the heatwave preview (+4/6 °C), and event + digest alerts will appear here.</p>`);
   return html;}
 
 boot().catch(e=>console.error(e));
