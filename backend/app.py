@@ -29,6 +29,7 @@ from pythermalcomfort.models import utci
 
 from datastore import STORE, CITY_IDS
 from weather import fetch_many, fetch_many_paced, synth_weather
+import weather as _owm
 from measures import admin_actions, user_sms
 from measures_i18n import personal_multilang, personal_oneline, emergency_multilang
 import pg_store
@@ -56,7 +57,16 @@ def ward_label(city,w):
 
 app=FastAPI(title="TAPAS - Thermal Assessment & Protection Analytics System")
 app.add_middleware(_NoCache)
-REFRESH_S=int(os.environ.get("HW_LIVE_REFRESH_S",6*3600))
+# ---- OpenWeatherMap refresh cadence & call budget ---------------------------
+# Free tier: 60 calls/min and 1,000,000 calls/month. One refresh pass costs one
+# call per unique ~3 km grid cell (~163 across the four cities), so the requested
+# cadence is clamped by owm_plan() to stay inside a planned share of the quota.
+REFRESH_S=int(os.environ.get("HW_LIVE_REFRESH_S",1800))          # requested refresh interval (default 30 min)
+OWM_LIMIT=int(os.environ.get("HW_OWM_MONTHLY_LIMIT",1000000))    # monthly call quota of the plan in use
+OWM_PER_MIN=int(os.environ.get("HW_OWM_PER_MIN",55))             # paced below the 60/min cap
+OWM_BUDGET_FRAC=float(os.environ.get("HW_OWM_BUDGET_FRAC",0.5))  # planned share of the quota (rest = headroom)
+OWM_HARD_STOP_FRAC=0.95                                          # stop calling at 95% of the quota
+STALE_MAX_S=int(os.environ.get("HW_STALE_MAX_S",6*3600))         # reuse last good record on a failed fetch up to this age
 DIGEST_S=int(os.environ.get("HW_DIGEST_S",6*3600))
 SIM={"offset":0.0,"label":""}  # labelled simulator, default off
 
@@ -389,17 +399,64 @@ def unique_grid(city):
         pts.setdefault(key,[]).append(w)
     return pts
 
+def _fmt_s(sec):
+    sec=int(sec)
+    if sec%3600==0: return f"{sec//3600} h"
+    if sec>=3600: return f"{sec/3600:.1f} h"
+    return f"{max(1,round(sec/60))} min"
+
+_PLAN_CACHE={}
+def owm_plan():
+    """Refresh plan that keeps OpenWeatherMap usage inside the free tier.
+    calls_per_pass = unique ~3 km grid cells across all cities. The effective
+    interval is the requested one, but never shorter than (a) the interval at
+    which a full pass uses only OWM_BUDGET_FRAC of the monthly quota, or (b) the
+    wall-clock a rate-paced pass needs plus a minute of slack."""
+    n=sum(len(unique_grid(c)) for c in CITY_IDS)
+    hit=_PLAN_CACHE.get(n)
+    if hit: return hit
+    month_s=30*86400
+    budget=OWM_LIMIT*OWM_BUDGET_FRAC
+    guard_s=math.ceil(n*month_s/budget) if budget>0 else month_s
+    pass_s=math.ceil(n/max(1,OWM_PER_MIN))*60
+    floor_s=max(guard_s,pass_s+60)
+    eff=max(REFRESH_S,floor_s)
+    plan={"calls_per_pass":n,"budget_interval_s":guard_s,"pace_interval_s":pass_s+60,
+          "floor_s":floor_s,"requested_s":REFRESH_S,"effective_s":eff,
+          "clamped":eff>REFRESH_S,
+          "projected_monthly_calls":round(n*month_s/eff)}
+    _PLAN_CACHE.clear(); _PLAN_CACHE[n]=plan
+    return plan
+def effective_refresh_s(): return owm_plan()["effective_s"]
+
+def _rec_age_s(rec,now):
+    try:
+        g=dt.datetime.fromisoformat(rec.get("generationtime_utc"))
+        if g.tzinfo is None: g=g.replace(tzinfo=dt.timezone.utc)
+        return (now-g).total_seconds()
+    except Exception:
+        return None
+
 class Live:
     def __init__(self):
         self.records={}; self.grid={}; self.last=None
+        self.throttled=False; self.stale={}; self.last_pass={"seconds":None,"calls":None}
     def refresh(self,force=False):
         now=dt.datetime.now(dt.timezone.utc)
-        if not force and self.last and (now-self.last).total_seconds()<REFRESH_S: return
+        if not force and self.last and (now-self.last).total_seconds()<effective_refresh_s(): return
         import time as _t
+        used=_owm.usage()["calls"]
+        if self.records and used>=OWM_LIMIT*OWM_HARD_STOP_FRAC:
+            # quota protection: keep serving the last good records, try again next interval
+            self.throttled=True; self.last=now
+            print(f"[weather] monthly call budget reached ({used}/{OWM_LIMIT}); holding last records", flush=True)
+            return
+        self.throttled=False
+        t0=_t.time(); calls0=used
         for city in CITY_IDS:
             g=unique_grid(city); self.grid[city]=g
             locs={k:(g[k][0]["centroid"][1],g[k][0]["centroid"][0]) for k in g}
-            r=fetch_many_paced(locs,max_workers=5,per_minute_limit=55)
+            r=fetch_many_paced(locs,max_workers=5,per_minute_limit=OWM_PER_MIN)
             # retry failures once
             fails=[k for k,res in r.items() if res[0]!="ok"]
             if fails: print(f"[weather] {city}: {len(fails)}/{len(locs)} failed — sample: {r[fails[0]][1]}", flush=True)
@@ -409,15 +466,26 @@ class Live:
                 r2=fetch_many(fl,max_workers=6)
                 for k,res in r2.items():
                     if res[0]=="ok": r[k]=res
-            recs={}
+            prev=self.records.get(city,{})
+            recs={}; stale=0
             for k,res in r.items():
                 if res[0]=="ok":
                     res[1]["_prov"]="live"; recs[k]={"rec":res[1],"prov":"live"}
+                    continue
+                # stale-while-error: a failed fetch reuses the last good LIVE record
+                # (age-capped, so it can never be older than the previous 6 h cadence)
+                old=prev.get(k)
+                age=_rec_age_s(old["rec"],now) if old and old.get("prov")=="live" else None
+                if age is not None and age<=STALE_MAX_S:
+                    old["rec"]["_stale"]=True; recs[k]=old; stale+=1
                 else:
-                    w=g[k][0]; s=synth_weather(w["centroid"][1],w["centroid"][0],now)
-                    s["_prov"]="fallback"; recs[k]={"rec":s,"prov":"fallback"}
+                    w=g[k][0]; s_=synth_weather(w["centroid"][1],w["centroid"][0],now)
+                    s_["_prov"]="fallback"; recs[k]={"rec":s_,"prov":"fallback"}
+            self.stale[city]=stale
             self.records[city]=recs
         self.last=now
+        _owm.flush_usage()
+        self.last_pass={"seconds":round(_t.time()-t0,1),"calls":_owm.usage()["calls"]-calls0}
     def prov(self,city):
         recs=self.records.get(city)
         if not recs: return "fallback"
@@ -680,7 +748,7 @@ def compute_snapshot(city, ward, rec, now):
         "weather":{"value":round(res["tair"],1),
                    "source":"OpenWeatherMap (live)" if prov=="live" else "OpenWeatherMap (offline fallback, tagged)",
                    "source_date":src,"provenance":prov,
-                   "cadence":"Refreshed up to every 6h (within source capability)."},
+                   "cadence":"Refreshed every "+_fmt_s(effective_refresh_s())+" within the OpenWeatherMap free-tier call budget (GET /api/weather/budget)."},
         "satellite":{"value":env,
                    "source":"Esri World Imagery satellite -- per-ward true-colour thermal-environment analysis",
                    "source_date":"static basemap","provenance":"satellite",
@@ -880,7 +948,7 @@ class Sched(threading.Thread):
         self._cached_atrisk=[]
     def at_risk(self):
         """Recompute the full 417-ward risk model ONLY when the underlying live
-        weather actually refreshed (every REFRESH_S, default 6h). Between
+        weather actually refreshed (every effective_refresh_s(), default 30 min). Between
         refreshes, reuse the cached result instead of re-running compute_national
         (which re-runs UTCI/forecast for every ward) on every 20s scheduler tick."""
         global _NAT
@@ -1042,7 +1110,7 @@ def cities():
                     "map":STORE.cities[city]["map"].get("image"),
                     "boundary_source":STORE.cities[city]["boundary_source"],
                     "vuln":vulnerability(city)})
-    return {"cities":out,"sim":SIM,"digest_s":DIGEST_S,"refresh_s":REFRESH_S,
+    return {"cities":out,"sim":SIM,"digest_s":DIGEST_S,"refresh_s":effective_refresh_s(),
             "weights":{k:WEIGHTS[k] for k in WEIGHTS},"v_weights":{k:W_V[k] for k in W_V}}
 
 # ================================================================ Phase 2
@@ -1445,6 +1513,33 @@ def alerts_test():
                 extra={"ward_city":city,"note":"manually triggered sample — not an automatic detection"})
     return {"sent":e["channel_result"].startswith("SENT"),"channel_result":e["channel_result"]}
 
+@app.get("/api/weather/budget")
+def weather_budget():
+    """OpenWeatherMap call budget: what one refresh costs, the effective cadence,
+    projected and actual monthly usage, and whether the hard stop is active."""
+    plan=owm_plan(); u=_owm.usage()
+    per_city={c:len(unique_grid(c)) for c in CITY_IDS}
+    return {"provider":"OpenWeatherMap 3-hour forecast (free tier)",
+            "api_key_set":bool(os.environ.get("OPENWEATHER_API_KEY")),
+            "limits":{"per_minute":60,"paced_at_per_minute":OWM_PER_MIN,"monthly":OWM_LIMIT},
+            "grid_calls_per_pass":plan["calls_per_pass"],"grid_calls_by_city":per_city,
+            "refresh":{"requested_s":plan["requested_s"],"effective_s":plan["effective_s"],
+                       "effective_human":_fmt_s(plan["effective_s"]),"clamped_by_budget":plan["clamped"],
+                       "minimum_s":plan["floor_s"],
+                       "minimum_reason":{"budget_interval_s":plan["budget_interval_s"],
+                                         "pace_interval_s":plan["pace_interval_s"]}},
+            "projected":{"monthly_calls":plan["projected_monthly_calls"],
+                         "pct_of_quota":round(100.0*plan["projected_monthly_calls"]/OWM_LIMIT,1)},
+            "actual":{"month":u["month"],"calls":u["calls"],
+                      "pct_of_quota":round(100.0*u["calls"]/OWM_LIMIT,2),
+                      "hard_stop_at":int(OWM_LIMIT*OWM_HARD_STOP_FRAC),"throttled":LIVE.throttled,
+                      "note":"Counted by this server and persisted to data/owm_usage.json; resets if the host filesystem is ephemeral."},
+            "last_refresh":LIVE.last.isoformat() if LIVE.last else None,
+            "last_pass":LIVE.last_pass,
+            "stale_grid_points":dict(LIVE.stale),
+            "note":"The forecast endpoint returns 3-hour steps; refreshing more often than the source model updates re-fetches similar values. "
+                   "A failed fetch reuses the last good live record (max age HW_STALE_MAX_S) before any demo fallback."}
+
 @app.get("/api/cadence")
 def cadence_api(): return {"cadence":cadence_table(),"non_goals":non_goals()}
 
@@ -1455,7 +1550,7 @@ def _norm(city):
 
 def cadence_table():
     return [
-      {"layer":"Live / forecast weather","source":"OpenWeatherMap","revisit":"Hourly","system":"Refreshed up to every 6h (within source capability)."},
+      {"layer":"Live / forecast weather","source":"OpenWeatherMap (3-hour forecast steps, 5 days)","revisit":"Every "+_fmt_s(effective_refresh_s())+" (env HW_LIVE_REFRESH_S)","system":"Re-fetched per ~3 km grid cell on a cadence clamped to the free-tier quota (60 calls/min, 1,000,000 calls/month); a failed fetch reuses the last good record for up to 6 h, then falls back to a tagged demo series. Usage and the effective interval are reported at GET /api/weather/budget."},
       {"layer":"Thermal environment","source":"Esri World Imagery true-colour per-ward analysis + REAL MODIS Terra per-ward values (NASA GIBS, no key): daytime LST (MOD11A1) and NDVI (MOD13Q1 rolling 8-day)","revisit":"Daily LST / 8-day NDVI (fetch_modis.py)","system":"LST/NDVI decoded from NASA official colour maps, mean of pixels inside each real ward polygon; LST anomaly vs city median adjusts exposure E; NDVI feeds greenness + cooling-access proxy. Ahmedabad LST currently absent (monsoon cloud, honestly skipped). NOT a fake sub-6h product."},
       {"layer":"Baseline / thresholds","source":"ECMWF ERA5 reanalysis (2014-2024 observed)","revisit":"Climatology","system":"Observed seasonal threshold only - never a live value."},
       {"layer":"Demographics / vulnerability","source":"Census of India 2011 (C-14 City; C-14 AP for Hyderabad) + ward-level HL-14 + Sagar et al. 2016 (PMC4973875) disability","revisit":"Static","system":"V = 7 indicators (children, literacy, slum, elderly 60+, disability, density, kutcha); elderly from C-14 City tables, Hyderabad via the fully-urban Hyderabad district row of C-14 AP (2011 jurisdiction; no official city row exists); kutcha REAL per ward from HL-14 (city-total fallback disclosed); slum pending where unpublished; weights renormalise over available indicators."},
