@@ -19,12 +19,64 @@ consistent with this app's existing "defensible default, not validated"
 labelling elsewhere.
 """
 import datetime as dt
+import json
 import math
 import os
+import threading
 import requests
 
 BASE = "https://api.openweathermap.org/data/2.5/forecast"
 API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
+
+# ------------------------------------------------------------ call accounting
+# Every request sent to OpenWeatherMap is counted per calendar month (UTC) so the
+# app can (a) report real usage against the free-tier quota and (b) stop calling
+# before the quota is exhausted. The counter is persisted to data/owm_usage.json;
+# on hosts with an ephemeral filesystem it simply restarts from zero, which can
+# only under-count -- the planning guard in app.py still bounds the call rate.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_USAGE_FILE = os.path.join(_ROOT, "data", "owm_usage.json")
+_USAGE_LOCK = threading.Lock()
+_USAGE = {"month": "", "calls": 0}
+
+
+def _month_key():
+    return _utcnow().strftime("%Y-%m")
+
+
+def _load_usage():
+    try:
+        d = json.load(open(_USAGE_FILE))
+        if d.get("month") == _month_key():
+            _USAGE.update({"month": d["month"], "calls": int(d.get("calls", 0))})
+            return
+    except Exception:
+        pass
+    _USAGE.update({"month": _month_key(), "calls": 0})
+
+
+def _count_call():
+    with _USAGE_LOCK:
+        if _USAGE["month"] != _month_key():      # new month -> counter resets
+            _USAGE.update({"month": _month_key(), "calls": 0})
+        _USAGE["calls"] += 1
+
+
+def flush_usage():
+    """Persist the counter (called once per refresh pass, not per request)."""
+    try:
+        with _USAGE_LOCK:
+            json.dump(dict(_USAGE), open(_USAGE_FILE, "w"))
+    except Exception:
+        pass
+
+
+def usage():
+    """{'month': 'YYYY-MM', 'calls': n} for the current month."""
+    with _USAGE_LOCK:
+        if _USAGE["month"] != _month_key():
+            _USAGE.update({"month": _month_key(), "calls": 0})
+        return dict(_USAGE)
 
 
 def _utcnow():
@@ -78,6 +130,7 @@ def fetch_ward(lat, lon, forecast_days=6):
     """
     if not API_KEY:
         raise RuntimeError("OPENWEATHER_API_KEY not set")
+    _count_call()
     r = requests.get(BASE, params={
         "lat": round(lat, 4), "lon": round(lon, 4),
         "appid": API_KEY, "units": "metric",
@@ -190,3 +243,6 @@ def fetch_many_paced(centroids, max_workers=5, per_minute_limit=55):
         if remaining > 0 and elapsed < 60:
             _t.sleep(60 - elapsed)
     return out
+
+
+_load_usage()
