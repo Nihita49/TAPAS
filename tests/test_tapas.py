@@ -664,7 +664,10 @@ def test_gate_mild_day_over_cool_normal_is_not_a_heat_wave():
     # Hyderabad Sept normal Tmax 28.8 -> a 33.4C day is +4.6C but only 33C: not a heat wave
     dep=33.4-app._mean_tmax("Hyderabad", 9)
     assert app._a_of(dep) >= 0.5                                  # departure alone would call it one
-    assert app._a_of(dep, 33.4, "Hyderabad") == 0.0               # gated: below plains ramp start (35C)
+    g=app._a_of(dep, 33.4, "Hyderabad")
+    assert g < 0.5                                                # gated below heat-wave onset
+    assert g == pytest.approx(app._a_of(dep*app.IMD_GATE_FLOOR)) # 33.4C is below the ramp start (35C): floor applies
+    assert g > 0.0                                                # soft gate: never a hard zero
 
 def test_gate_leaves_real_heat_waves_unchanged():
     assert app._a_of(6.5, 43.0, "Hyderabad") == app._a_of(6.5)
@@ -685,3 +688,16 @@ def test_gate_does_not_touch_cool_or_missing_inputs():
     assert app._a_of(None, 33.0, "Hyderabad") == 0.0
     assert app._a_of(-2.0, 30.0, "Hyderabad") == app._a_of(-2.0)
     assert app._a_of(3.0) == app._a_of(3.0, None, None)           # old call style still works
+
+
+def test_gate_never_zeroes_hazard_for_every_ward():
+    """Regression: a hard gate made H and HTSI exactly 0 for every ward whenever UTCI<=36."""
+    city="Hyderabad"; ws=wards_with_sat(city)[:40]
+    norm=app._mean_tmax(city, 9)
+    a=app._a_of(33.4-norm, 33.4, city); H=clamp(0.62*a+0.38*clamp((27.0-36.0)/10.0))   # morning UTCI 27
+    assert H > 0
+    vals=[]
+    for w in ws:
+        env=env_terms(w["sat"], city); ac,_=ac_for_ward(city, env, w["sat"])
+        vals.append(H*vulnerability(city, w)["v"]*env["E"]*(1.0-ac))
+    assert min(vals) > 0 and len(set(round(v,4) for v in vals)) > 1   # non-zero and still ranks wards
