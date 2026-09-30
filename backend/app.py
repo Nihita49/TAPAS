@@ -399,6 +399,10 @@ def unique_grid(city):
         pts.setdefault(key,[]).append(w)
     return pts
 
+IST=dt.timezone(dt.timedelta(hours=5,minutes=30))   # India has no DST -> fixed offset (no tzdata needed)
+def _ist(t):
+    return t.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S IST") if t else None
+
 def _fmt_s(sec):
     sec=int(sec)
     if sec%3600==0: return f"{sec//3600} h"
@@ -1535,6 +1539,8 @@ def weather_budget():
                       "hard_stop_at":int(OWM_LIMIT*OWM_HARD_STOP_FRAC),"throttled":LIVE.throttled,
                       "note":"Counted by this server and persisted to data/owm_usage.json; resets if the host filesystem is ephemeral."},
             "last_refresh":LIVE.last.isoformat() if LIVE.last else None,
+            "last_refresh_ist":_ist(LIVE.last),
+            "next_refresh_ist":_ist(LIVE.last+dt.timedelta(seconds=plan["effective_s"])) if LIVE.last else None,
             "last_pass":LIVE.last_pass,
             "stale_grid_points":dict(LIVE.stale),
             "note":"The forecast endpoint returns 3-hour steps; refreshing more often than the source model updates re-fetches similar values. "
