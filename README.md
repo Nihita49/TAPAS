@@ -42,12 +42,11 @@
 6. [Tech Stack](#6-tech-stack)
 7. [Data Sources](#7-data-sources)
 8. [Pilot Coverage](#8-pilot-coverage)
-9. [Screenshots](#9-screenshots)
-10. [Getting Started](#10-getting-started)
-11. [Project Structure](#11-project-structure)
-12. [Transparency & Limitations](#12-transparency--limitations)
-13. [Future Scope](#13-future-scope)
-14. [Acknowledgements](#15-acknowledgements)
+9. [Getting Started](#10-getting-started)
+10. [Project Structure](#11-project-structure)
+11. [Transparency & Limitations](#12-transparency--limitations)
+12. [Future Scope](#13-future-scope)
+13. [Acknowledgements](#15-acknowledgements)
 
 ---
 
@@ -326,25 +325,7 @@ The four cities span very different heat regimes: dry-hot (Ahmedabad), humid-coa
 
 ---
 
-## 9. Screenshots
-
-> _Add screenshots to a `docs/screenshots/` folder and update the paths below._
-
-| National watch | City ward map |
-|---|---|
-| ![National](docs/screenshots/national.png) | ![City](docs/screenshots/city.png) |
-
-| Ward panel | Preventive simulator |
-|---|---|
-| ![Ward](docs/screenshots/ward.png) | ![Simulator](docs/screenshots/simulator.png) |
-
-| Trilingual alert | Resource allocation |
-|---|---|
-| ![Alert](docs/screenshots/alert.png) | ![Allocation](docs/screenshots/allocation.png) |
-
----
-
-## 10. Getting Started
+## 9. Getting Started
 
 ### Try it online
 
@@ -390,7 +371,7 @@ cd backend && TAPAS_NOSCHED=1 python -m pytest ../tests -q
 
 ---
 
-## 11. Project Structure
+## 10. Project Structure
 
 ```
 TAPAS/
@@ -407,7 +388,7 @@ TAPAS/
 
 ---
 
-## 12. Transparency & Limitations
+## 11. Transparency & Limitations
 
 We designed TAPAS to state what it does *not* know.
 
@@ -423,7 +404,7 @@ See [TECHNICAL.md](TECHNICAL.md) for the complete list.
 
 ---
 
-## 13. Future Scope
+## 12. Future Scope
 
 - **Calibrate with real health data**: fit mortality and hospitalisation models using municipal death registers and NCDC/IHIP heat-illness data.
 - **Scale nationally**: extend to more cities and to IMD gridded forecasts and station data.
@@ -435,7 +416,7 @@ See [TECHNICAL.md](TECHNICAL.md) for the complete list.
 
 ---
 
-## 14. Acknowledgements
+## 13. Acknowledgements
 
 Ministry of Earth Sciences and the Smart India Hackathon 2026 organisers · India Meteorological Department · Ahmedabad Heat Action Plan · Census of India · ECMWF ERA5 & Open-Meteo · NASA GIBS / MODIS · WUDAPT & Demuzere et al. · OpenStreetMap contributors · Esri · de Bont et al. 2024 · Sagar et al. 2016.
 
