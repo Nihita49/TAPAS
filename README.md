@@ -47,8 +47,7 @@
 11. [Project Structure](#11-project-structure)
 12. [Transparency & Limitations](#12-transparency--limitations)
 13. [Future Scope](#13-future-scope)
-14. [Team Ecolytes](#14-team-ecolytes)
-15. [Acknowledgements](#15-acknowledgements)
+14. [Acknowledgements](#15-acknowledgements)
 
 ---
 
@@ -230,7 +229,7 @@ sequenceDiagram
     participant TW as Twilio
     participant UI as Dashboard
 
-    loop every 6 h
+    loop every 30 min (budget-clamped)
         SC->>OW: Fetch forecast per 3 km grid cell (paced, 55 per minute)
         OW-->>SC: Records, or failure tagged as fallback
     end
@@ -312,9 +311,9 @@ sequenceDiagram
 | City | State | Wards | Alert language |
 |---|---|---|---|
 | Mumbai | Maharashtra | 24 | Marathi |
-| Ahmedabad | Gujarat | 144 | Gujarati |
-| Chennai | Tamil Nadu | 48 | Tamil |
-| Hyderabad | Telangana | 201 | Telugu |
+| Ahmedabad | Gujarat | 48 | Gujarati |
+| Chennai | Tamil Nadu | 201 | Tamil |
+| Hyderabad | Telangana | 144 | Telugu |
 | **Total** | | **417** | + English & Hindi everywhere |
 
 The four cities span very different heat regimes: dry-hot (Ahmedabad), humid-coastal (Mumbai, Chennai) and semi-arid plateau (Hyderabad). The design is intended to extend to further cities by adding ward boundaries and running the data pipeline.
@@ -372,7 +371,9 @@ docker compose up --build
 | `OPENWEATHER_API_KEY` | Live weather (unset ⇒ tagged demo fallback) |
 | `DATABASE_URL` | PostGIS (unset ⇒ JSON datastore) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO` | Real SMS sends (otherwise honestly reported as `SIMULATED`) |
-| `HW_LIVE_REFRESH_S`, `HW_DIGEST_S` | Refresh and digest intervals (default 6 h) |
+| `HW_LIVE_REFRESH_S` | Weather refresh interval in seconds (default `1800` = 30 min; auto-clamped to the OpenWeatherMap free-tier budget) |
+| `HW_DIGEST_S` | City digest interval (default 6 h) |
+| `HW_OWM_MONTHLY_LIMIT`, `HW_OWM_PER_MIN`, `HW_OWM_BUDGET_FRAC`, `HW_STALE_MAX_S` | Call-budget tuning: monthly quota (1,000,000), paced calls/min (55), planned share of quota (0.5), max age for reusing a last-good record (6 h) |
 
 ### Run the tests
 
@@ -427,23 +428,7 @@ See [TECHNICAL.md](TECHNICAL.md) for the complete list.
 
 ---
 
-## 14. Team Ecolytes
-
-| Name | Role |
-|---|---|
-| _Team Leader_ | _e.g. Backend & Risk Modelling_ |
-| _Member 2_ | _e.g. Data Pipeline & GIS_ |
-| _Member 3_ | _e.g. Frontend & UX_ |
-| _Member 4_ | _e.g. Alerts & Deployment_ |
-| _Member 5_ | _e.g. Research & Documentation_ |
-| _Member 6_ | _e.g. Testing & QA_ |
-
-**Institute:** _add college name_
-**Mentor:** _add mentor name_
-
----
-
-## 15. Acknowledgements
+## 14. Acknowledgements
 
 Ministry of Earth Sciences and the Smart India Hackathon 2026 organisers · India Meteorological Department · Ahmedabad Heat Action Plan · Census of India · ECMWF ERA5 & Open-Meteo · NASA GIBS / MODIS · WUDAPT & Demuzere et al. · OpenStreetMap contributors · Esri · de Bont et al. 2024 · Sagar et al. 2016.
 
