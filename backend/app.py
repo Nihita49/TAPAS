@@ -264,6 +264,14 @@ BAND_T_DEFAULTS=list(BAND_T)
 IMD_HW_DEP=4.5
 IMD_SHW_DEP=6.4
 FLAGS={"sym_anom":False}       # True => anomaly term may also lower risk (a in [-1,1])
+# Seasonal factor (mortality/hospitalisation logistics only; HTSI is untouched).
+# The static ward terms (E exposure, V vulnerability uplift, AC cooling access) are
+# scaled by how close the month's normal Tmax is to the city's hottest month, so a
+# dense low-AC ward is not flagged "High" year-round. A live hazard (heat-wave-level
+# anomaly or strong UTCI) overrides the season, so unseasonal heat is never damped.
+# floor = share of the static terms kept in the city's coolest month. UNVALIDATED default.
+SEASON={"enabled":True,"floor":0.25}
+SEASON_DEFAULTS=dict(SEASON)
 _WFILE=os.path.join(ROOT,"data","weights.json")
 
 # ---- preventive-measure effect sizes (preventive impact simulator) ----------
@@ -301,6 +309,12 @@ def _load_weights_file():
         rbt=d.get("risk_band_t")
         if isinstance(rbt,list) and len(rbt)==3 and 0<rbt[0]<rbt[1]<rbt[2]<1: RISK_BAND_T[:]=[float(x) for x in rbt]
         if isinstance(d.get("flags"),dict): FLAGS["sym_anom"]=bool(d["flags"].get("sym_anom",False))
+        se=d.get("season")
+        if isinstance(se,dict):
+            if "enabled" in se: SEASON["enabled"]=bool(se["enabled"])
+            try:
+                if "floor" in se: SEASON["floor"]=max(0.0,min(1.0,float(se["floor"])))
+            except Exception: pass
         me=d.get("measure_effects") or {}
         for k,v in me.items():
             if k in MEASURE_EFFECTS and isinstance(v,dict):
@@ -311,7 +325,7 @@ def _load_weights_file():
 def _save_weights_file():
     try:
         json.dump({"weights":WEIGHTS,"v_weights":W_V,"risk_coef":RISK_COEF,
-                   "band_t":BAND_T,"risk_band_t":RISK_BAND_T,"flags":FLAGS,
+                   "band_t":BAND_T,"risk_band_t":RISK_BAND_T,"flags":FLAGS,"season":SEASON,
                    "measure_effects":{k:{kk:vv for kk,vv in v.items()} for k,v in MEASURE_EFFECTS.items()}},
                   open(_WFILE,"w"))
     except Exception:
@@ -561,7 +575,38 @@ def _a_of(dep):
     if dep<=IMD_HW_DEP: return 0.5*dep/IMD_HW_DEP
     return clamp(0.5+0.5*(dep-IMD_HW_DEP)/(IMD_SHW_DEP-IMD_HW_DEP))
 
-def _risk_terms(a, surge, Hw, Ew, Vw, ACw):
+def season_info(city, month, a=0.0, surge=0.0):
+    """Seasonal scale (0..1) for the static terms of the risk logistics.
+    seasonal = floor + (1-floor) * (normal Tmax of `month` - coolest month) / (hottest - coolest),
+    from the city's own ERA5 monthly climatology. A live hazard overrides it:
+    factor = max(seasonal, live), where live = 2*anomaly driver (full weight at IMD
+    heat-wave onset, a=0.5) or a ramp on the UTCI surge from 0 at surge 0.5 (UTCI 41)
+    to 1 at surge 0.8 (UTCI 44). A hot-sun UTCI reading alone (36-41) does not lift the
+    season: that is what produces year-round 'Moderate' in cool months."""
+    off={"enabled":False,"month":month,"seasonal":1.0,"live_override":0.0,"factor":1.0}
+    if not SEASON.get("enabled"): return off
+    try:
+        m=STORE.cities[city]["baseline"]["mean_monthly_tmax"]
+        vals=[float(v) for v in m.values() if v is not None]
+        cur=m.get(str(month))
+        if len(vals)<12 or cur is None or max(vals)-min(vals)<1.0:
+            return dict(off,enabled=True,basis="no usable monthly climatology; season not applied")
+        rel=clamp((float(cur)-min(vals))/(max(vals)-min(vals)))
+    except Exception:
+        return dict(off,enabled=True,basis="no usable monthly climatology; season not applied")
+    fl=float(SEASON["floor"])
+    seasonal=fl+(1.0-fl)*rel
+    live=clamp(max(2.0*(a or 0.0), ((surge or 0.0)-0.5)/0.3))
+    return {"enabled":True,"month":month,"normal_tmax":round(float(cur),1),
+            "seasonal":round(seasonal,3),"live_override":round(live,3),
+            "factor":round(max(seasonal,live),3),"floor":fl,
+            "basis":"ERA5 2014-2024 monthly mean Tmax, relative to the city's own coolest/hottest month; "
+                    "live heat overrides (UNVALIDATED default)"}
+
+def season_factor(city, month, a=0.0, surge=0.0):
+    return season_info(city, month, a, surge)["factor"]
+
+def _risk_terms(a, surge, Hw, Ew, Vw, ACw, season=1.0):
     """Per-term additive contributions to each logistic's z (transparency).
     Inputs are the SAME WEIGHTED factors HTSI uses - Hw=wH*H, Ew=wE*E, Vw=wV*V,
     ACw=wAC*AC - so editing WEIGHTS via /api/weights moves HTSI and both risk
@@ -569,20 +614,20 @@ def _risk_terms(a, surge, Hw, Ew, Vw, ACw):
     cm=RISK_COEF["mort"]; ch=RISK_COEF["hosp"]
     mt={"intercept":cm["intercept"],"anom":round(cm["anom"]*a,3),
         "surge":round(cm["surge"]*surge,3),"H":round(cm["H"]*Hw,3),
-        "E":round(cm["E"]*Ew,3),"V":round(cm["V"]*(Vw-1.0),3),"AC":round(-cm["AC"]*ACw,3)}
+        "E":round(cm["E"]*Ew*season,3),"V":round(cm["V"]*(Vw-1.0)*season,3),"AC":round(-cm["AC"]*ACw*season,3)}
     ht={"intercept":ch["intercept"],"anom":round(ch["anom"]*a,3),
         "surge":round(ch["surge"]*surge,3),"H":round(ch["H"]*Hw,3),
-        "E":round(ch["E"]*Ew,3),"V":round(ch["V"]*(Vw-1.0),3),"AC":round(-ch["AC"]*ACw,3)}
+        "E":round(ch["E"]*Ew*season,3),"V":round(ch["V"]*(Vw-1.0)*season,3),"AC":round(-ch["AC"]*ACw*season,3)}
     mt["intercept"]=round(mt["intercept"],3); ht["intercept"]=round(ht["intercept"],3)
     zm=sum(mt.values()); zh=sum(ht.values())
     return 1/(1+math.exp(-zm)), 1/(1+math.exp(-zh)), mt, ht, round(zm,3), round(zh,3)
 
-def _risk_probs(a, surge, Hw, Ew, Vw, ACw):
+def _risk_probs(a, surge, Hw, Ew, Vw, ACw, season=1.0):
     """Transparent exposure-response logistic for mortality & hospitalisation.
     Standard sigmoid on a configurable coefficient set (defensible UNVALIDATED
     defaults, editable via /api/weights) evaluated on the same WEIGHTED factors
     as HTSI; AC lowers risk with a negative coefficient."""
-    m,h,_,_,_,_=_risk_terms(a,surge,Hw,Ew,Vw,ACw)
+    m,h,_,_,_,_=_risk_terms(a,surge,Hw,Ew,Vw,ACw,season)
     return m,h
 
 # ------------------------------------------------------------ calibration layer
@@ -699,7 +744,8 @@ def compute_snapshot(city, ward, rec, now):
     # mortality/hospitalisation risk: respond to hazard anomaly + exposure
     a=_a_of(res.get("dep"))
     surge=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
-    mort,hosp,mt,ht,zm,zh=_risk_terms(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
+    sinfo=season_info(city, now.month, a, surge)
+    mort,hosp,mt,ht,zm,zh=_risk_terms(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac,sinfo["factor"])
     mb=rband(mort)[0]; hb=rband(hosp)[0]
     cal_m=cal_h=None
     if calibration.status().get("cities"):
@@ -724,6 +770,7 @@ def compute_snapshot(city, ward, rec, now):
              "ac_detail":ac_info,
              "confidence":conf,
              "risk_terms":{"mort":mt,"hosp":ht,"z_mort":zm,"z_hosp":zh},
+             "season":sinfo,
              "formula":"HTSI = (wH.H) x (wV.V) x (wE.E) x (1 - wAC.AC)"}
     return {
       "ward":{"id":ward["id"],"label":ward.get("label"),"city":city},
@@ -802,8 +849,9 @@ def forecast(city,ward,rec,now,env,ac):
         a=_a_of(daymax-normD if normD is not None else None)
         srg=clamp((peak["u"]-36.0)/10.0) if peak["u"] else 0.0
         hsev_day=clamp(0.62*a+0.38*srg)
-        mort,hosp=_risk_probs(a,srg,WEIGHTS["H"]*hsev_day,WEIGHTS["E"]*env["E"],WEIGHTS["V"]*vfor["v"],WEIGHTS["AC"]*ac)
-        out.append({"date":d,"day":dd.strftime("%a %d %b"),"peak_htsi":round(peak["h"],3),
+        sf=season_info(city, dd.month, a, srg)
+        mort,hosp=_risk_probs(a,srg,WEIGHTS["H"]*hsev_day,WEIGHTS["E"]*env["E"],WEIGHTS["V"]*vfor["v"],WEIGHTS["AC"]*ac,sf["factor"])
+        out.append({"season_factor":sf["factor"],"date":d,"day":dd.strftime("%a %d %b"),"peak_htsi":round(peak["h"],3),
                     "peak_utci":round(peak["u"],1),"band":band(peak["h"])[0],
                     "peak_mortality_band":rband(mort)[0],"mortality_prob":round(mort,3),
                     "peak_hosp_band":rband(hosp)[0],"hosp_prob":round(hosp,3),
@@ -1138,7 +1186,8 @@ def projection(city,wid):
     a=_a_of(dep)
     surge=clamp((utci-36.0)/10.0) if utci else 0.0
     E=env["E"]; H=f["H"]
-    base_mort,base_hosp=_risk_probs(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
+    sf=season_factor(city, now.month, a, surge)
+    base_mort,base_hosp=_risk_probs(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac,sf)
     rows=[]
     # Scenarios raise AC by an assumed gain (cooling access / refuge / shade programme)
     for label,gain,desc in [
@@ -1148,7 +1197,7 @@ def projection(city,wid):
         ac2=min(0.95,ac+gain); rel=(1-ac2)/(1-ac)   # cooling-deficit ratio
         # a higher AC lowers the exposure each individual faces -> E_eff down by rel
         E2=E*rel
-        m,h=_risk_probs(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E2,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
+        m,h=_risk_probs(a,surge,WEIGHTS["H"]*H,WEIGHTS["E"]*E2,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac,sf)
         d_mort=(base_mort-m)/max(1e-6,base_mort)*100
         rows.append({"label":label,"desc":desc,"ac_from":round(ac,3),"ac_to":round(ac2,3),
                      "mort_before":round(base_mort,3),"mort_after":round(m,3),
@@ -1160,13 +1209,13 @@ def projection(city,wid):
             "scenarios":rows,
             "disclosure":"Scenario projection. Re-runs the same defensible-default (unvalidated) model with an assumed adaptive-capacity gain; not a measured outcome."}
 
-def apply_measures(a, s, H, E, Vv, AC, measures):
+def apply_measures(a, s, H, E, Vv, AC, measures, season=1.0):
     """Cumulatively apply MEASURE_EFFECTS in canonical order (pure function).
     Adjustments happen in RAW input space (AC re-clamped to [0.05,0.90], s
     floored at 0), then the same WEIGHTS as HTSI are applied before the
     logistic. Returns (a,s,H,E,Vv,AC,steps) with per-step P values (waterfall)."""
     Hw=WEIGHTS["H"]*H; Ew=WEIGHTS["E"]*E; Vw=WEIGHTS["V"]*Vv; ACw=WEIGHTS["AC"]*AC
-    bm,bh=_risk_probs(a,s,Hw,Ew,Vw,ACw)
+    bm,bh=_risk_probs(a,s,Hw,Ew,Vw,ACw,season)
     steps=[]
     for m in MEASURE_EFFECTS:
         if m not in measures: continue
@@ -1174,7 +1223,7 @@ def apply_measures(a, s, H, E, Vv, AC, measures):
         if eff["term"]=="AC": AC=clamp(AC+eff["value"],0.05,0.90); ACw=WEIGHTS["AC"]*AC
         elif eff["term"]=="s": s=max(0.0,s+eff["value"])
         elif eff["term"]=="vt": Vv=1.0+eff["value"]*(Vv-1.0); Vw=WEIGHTS["V"]*Vv
-        mm,hh=_risk_probs(a,s,Hw,Ew,Vw,ACw)
+        mm,hh=_risk_probs(a,s,Hw,Ew,Vw,ACw,season)
         steps.append({"measure":m,"term":eff["term"],"op":eff["op"],"value":eff["value"],
                       "rationale":eff["rationale"],
                       "AC":round(AC,3),"s":round(s,3),"Vv":round(Vv,4),
@@ -1219,9 +1268,12 @@ def simulate_preventive_impact(city, ward_id, date, selected_measures):
         a=_a_of(res.get("dep")); s=clamp((res["utci"]-36.0)/10.0) if res["utci"] else 0.0
         Hh=res["hsev"]
     if Hh is None: Hh=clamp(0.62*a+0.38*s)
-    bm,bh=_risk_probs(a,s,WEIGHTS["H"]*Hh,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac)
-    a2,s2,H2,E2,V2,AC2,steps=apply_measures(a,s,Hh,E,VV,ac,list(selected_measures or []))
-    am,ah=_risk_probs(a2,s2,WEIGHTS["H"]*H2,WEIGHTS["E"]*E2,WEIGHTS["V"]*V2,WEIGHTS["AC"]*AC2)
+    try: _m=dt.date.fromisoformat(date).month if date else now.month
+    except Exception: _m=now.month
+    sf=season_factor(city, _m, a, s)
+    bm,bh=_risk_probs(a,s,WEIGHTS["H"]*Hh,WEIGHTS["E"]*E,WEIGHTS["V"]*VV,WEIGHTS["AC"]*ac,sf)
+    a2,s2,H2,E2,V2,AC2,steps=apply_measures(a,s,Hh,E,VV,ac,list(selected_measures or []),sf)
+    am,ah=_risk_probs(a2,s2,WEIGHTS["H"]*H2,WEIGHTS["E"]*E2,WEIGHTS["V"]*V2,WEIGHTS["AC"]*AC2,sf)
     return {"available":True,"city":city,"ward_label":ward_label(city,w),
             "date":date or now.date().isoformat(),
             "inputs":{"a":round(a,3),"s":round(s,3),"E":round(E,3),"V":round(VV,3),"AC":round(ac,3)},
@@ -1278,6 +1330,7 @@ class WgtReq(BaseModel):
     band1:float=None; band2:float=None; band3:float=None
     rband1:float=None; rband2:float=None; rband3:float=None
     sym_anom:bool=None
+    season_enabled:bool=None; season_floor:float=None
     measure_effects:dict=None
     reset:bool=None
 @app.get("/api/calibration")
@@ -1301,10 +1354,12 @@ def get_weights():
             "band_t":list(BAND_T),"band_t_defaults":BAND_T_DEFAULTS,
             "risk_band_t":list(RISK_BAND_T),"risk_band_t_defaults":RISK_BAND_T_DEFAULTS,
             "flags":dict(FLAGS),
+            "season":dict(SEASON),"season_defaults":dict(SEASON_DEFAULTS),
             "note":"Configurable: HTSI factor weights; V sub-weights; exposure-response logistic "
                    "coefficients (mort/hosp); HTSI band cut-points (band_t); mortality/hosp probability "
                    "cut-points (risk_band_t) - the two band scales are independently calibrated BY DESIGN "
                    "(HTSI is a 0..~0.5 composite, the logistics are probabilities); sym_anom flag; "
+                   "season (enabled/floor: scales the static E/V/AC risk terms by month, live heat overrides); "
                    "measure_effects. All defensible UNVALIDATED defaults - see Methodology 4. "
                    "POST reset:true restores defaults."}
 @app.post("/api/weights")
@@ -1316,6 +1371,7 @@ def set_weights(req:WgtReq):
         for k in ("mort","hosp"): RISK_COEF[k].update(RISK_COEF_DEFAULTS[k])
         for k in MEASURE_EFFECTS: MEASURE_EFFECTS[k].update(MEASURE_EFFECTS_DEFAULTS[k])
         BAND_T[:]=list(BAND_T_DEFAULTS); RISK_BAND_T[:]=list(RISK_BAND_T_DEFAULTS); FLAGS["sym_anom"]=False
+        SEASON.update(SEASON_DEFAULTS)
     for k,v in [("H",req.H),("V",req.V),("E",req.E),("AC",req.AC),("scale",req.scale)]:
         if v is not None: WEIGHTS[k]=float(v)
     for k,v in [("children",req.c),("literacy",req.l),("slum",req.s)]:
@@ -1337,6 +1393,8 @@ def set_weights(req:WgtReq):
         b=[float(x) for x in rbt]
         if 0.001<b[0]<b[1]<b[2]<0.999: RISK_BAND_T[:]=b
     if req.sym_anom is not None: FLAGS["sym_anom"]=bool(req.sym_anom)
+    if req.season_enabled is not None: SEASON["enabled"]=bool(req.season_enabled)
+    if req.season_floor is not None: SEASON["floor"]=max(0.0,min(1.0,float(req.season_floor)))
     for k,v in (req.measure_effects or {}).items():
         if k not in MEASURE_EFFECTS: continue
         val=v["value"] if isinstance(v,dict) else v
@@ -1404,6 +1462,7 @@ def city_wards(city):
         city_measures=["Heat within seasonal normal. Routine heat-advisory monitoring continues; no escalated response triggered."]
     return {"city":city,"features":feats,"sim":SIM,"geo_source":"omitted (see /geometry)",
             "aggregate":{"distribution":agg,"outlook":rows,
+                         "season":season_info(city, now.month),
                          "alert_level":order[highest],
                          "admin_measures":city_measures},
             "mapmeta":{"zoom":STORE.cities[city]["map"]["zoom"],
