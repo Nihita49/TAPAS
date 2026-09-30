@@ -657,3 +657,31 @@ def test_snapshot_and_city_summary_carry_season():
     r=client.get("/api/city/Hyderabad/wards").json()
     se=r["aggregate"]["season"]
     assert {"enabled","month","seasonal","factor"} <= set(se)
+
+
+# ---------- IMD absolute-temperature gate ----------
+def test_gate_mild_day_over_cool_normal_is_not_a_heat_wave():
+    # Hyderabad Sept normal Tmax 28.8 -> a 33.4C day is +4.6C but only 33C: not a heat wave
+    dep=33.4-app._mean_tmax("Hyderabad", 9)
+    assert app._a_of(dep) >= 0.5                                  # departure alone would call it one
+    assert app._a_of(dep, 33.4, "Hyderabad") == 0.0               # gated: below plains ramp start (35C)
+
+def test_gate_leaves_real_heat_waves_unchanged():
+    assert app._a_of(6.5, 43.0, "Hyderabad") == app._a_of(6.5)
+    assert app._a_of(5.0, 40.0, "Hyderabad") == app._a_of(5.0)    # at the plains threshold: full weight
+    assert app._a_of(5.0, 37.0, "Mumbai") == app._a_of(5.0)       # coastal threshold is 37C
+    assert app._a_of(5.0, 37.0, "Hyderabad") < app._a_of(5.0)     # same day is not a plains heat wave
+
+def test_gate_is_switchable_and_resets():
+    try:
+        j=client.post("/api/weights", json={"imd_abs_gate":False}).json()
+        assert j["flags"]["imd_abs_gate"] is False
+        assert app._a_of(4.6, 33.4, "Hyderabad") == app._a_of(4.6)
+    finally:
+        j=client.post("/api/weights", json={"reset":True}).json()
+    assert j["flags"]["imd_abs_gate"] is True
+
+def test_gate_does_not_touch_cool_or_missing_inputs():
+    assert app._a_of(None, 33.0, "Hyderabad") == 0.0
+    assert app._a_of(-2.0, 30.0, "Hyderabad") == app._a_of(-2.0)
+    assert app._a_of(3.0) == app._a_of(3.0, None, None)           # old call style still works
