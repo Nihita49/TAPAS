@@ -599,3 +599,9 @@ def test_owm_calls_are_counted(monkeypatch):
     before = weather.usage()["calls"]
     weather.fetch_ward(19.0, 72.8)
     assert weather.usage()["calls"] == before + 1
+
+def test_budget_endpoint_reports_ist(monkeypatch):
+    monkeypatch.setattr(app.LIVE, "last", dt.datetime(2026, 9, 30, 0, 27, 13, tzinfo=dt.timezone.utc))
+    j = client.get("/api/weather/budget").json()
+    assert j["last_refresh_ist"] == "2026-09-30 05:57:13 IST"          # UTC + 5:30
+    assert j["next_refresh_ist"].startswith("2026-09-30 06:27")          # +30 min
